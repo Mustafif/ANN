@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, Dataset, RandomSampler, SubsetRandomSam
 
 from ann import ForwardModel
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "mps:0"  if torch.backends.mps.is_available() else "cpu")
 
 class SimDataset(Dataset):
     def __init__(self, dataframe):

@@ -1,44 +1,45 @@
+import torch
 import torch.nn as nn
-import torch 
+
 
 class ForwardModel(nn.Module):
-    def __init__(self, input_features=10, hidden_size=200, dropout_rate=0.0, num_layers=4):
+    def __init__(self, input_features=10, hidden_size=200, dropout_rate=0.0, num_layers=6):
         super().__init__()
         # set activation function for hidden layers
         # activation = nn.Mish()
         # ln = nn.LayerNorm(hidden_size)
         # layers = []
 
-        # self.rnn = nn.LSTM(input_size=input_features, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, dropout=dropout_rate, bidirectional=False)
-        # self.out = nn.Linear(hidden_size, 1)
+        self.rnn = nn.LSTM(input_size=input_features, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, dropout=dropout_rate, bidirectional=True)
+        self.out = nn.Linear(hidden_size*2, 1)
         # self.apply(self._init_weights)
         # Activation function
-        activation = nn.Mish()
-        # Layer normalization
-        ln = nn.LayerNorm(hidden_size)
-        # Create list of layers
-        layers = []
+        # activation = nn.Mish()
+        # # Layer normalization
+        # ln = nn.LayerNorm(hidden_size)
+        # # Create list of layers
+        # layers = []
 
-        # Input layer
-        layers.extend(
-            [
-                nn.Linear(input_features, hidden_size),
-                ln,
-                activation,
-            ]
-        )
+        # # Input layer
+        # layers.extend(
+        #     [
+        #         nn.Linear(input_features, hidden_size),
+        #         ln,
+        #         activation,
+        #     ]
+        # )
 
-        # Hidden layers
-        for _ in range(num_layers):
-            layers.extend(
-                [
-                    nn.Linear(hidden_size, hidden_size),
-                    ln,
-                    activation,
-                    nn.Dropout(dropout_rate),
-                ]
-            )
-        
+        # # Hidden layers
+        # for _ in range(num_layers):
+        #     layers.extend(
+        #         [
+        #             nn.Linear(hidden_size, hidden_size),
+        #             ln,
+        #             activation,
+        #             nn.Dropout(dropout_rate),
+        #         ]
+        #     )
+
         # layers.extend(
         #     [
         #         torch.heaviside(hidden_size, hidden_size)
@@ -46,26 +47,35 @@ class ForwardModel(nn.Module):
         # )
 
         # Combine all hidden layers into a Sequential
-        self.hidden_layers = nn.Sequential(*layers)
-        # Output layer
-        self.output_layer = nn.Linear(hidden_size, 1)
+        # self.hidden_layers = nn.Sequential(*layers)
+
+        # self.lstm = nn.LSTM(
+        #     input_size=hidden_size,
+        #     hidden_size=hidden_size,
+        #     num_layers=num_layers,
+        #     batch_first=True,
+        #     dropout=dropout_rate if num_layers > 1 else 0.0
+        # )
+        # # Output layer
+        # self.output_layer = nn.Linear(hidden_size, 1)
 
         # Initialize weights
-        self.apply(self._init_weights)
+    #     self.apply(self._init_weights)
 
 
 
-    def _init_weights(self, module):
-        if isinstance(module, nn.Linear): 
-            nn.init.kaiming_normal_(module.weight)
-            nn.init.zeros_(module.bias)
+    # def _init_weights(self, module):
+    #     if isinstance(module, nn.Linear):
+    #         nn.init.kaiming_normal_(module.weight)
+    #         nn.init.zeros_(module.bias)
 
     def forward(self,x):
-        # if x.dim() == 2:
-        #     x = x.unsqueeze(1)
-        # out, (h, c) = self.rnn(x)
-        # last_out = out[:, -1, :]
-        # return nn.functional.softplus(self.out(last_out))
-        x = self.hidden_layers(x)
-        x = nn.functional.softplus(self.output_layer(x))
-        return x
+        if x.dim() == 2:
+            x = x.unsqueeze(1)
+        out, (h, c) = self.rnn(x)
+        last_out = out[:, -1, :]
+        return nn.functional.softplus(self.out(last_out))
+        # x = self.hidden_layers(x)
+        # x, _ = self.lstm(x)
+        # x = nn.functional.softplus(self.output_layer(x))
+        # return x
