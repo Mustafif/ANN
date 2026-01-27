@@ -1,3 +1,6 @@
+import os
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import sklearn
@@ -7,8 +10,10 @@ from torch.utils.data import DataLoader, Dataset, RandomSampler, SubsetRandomSam
 
 from ann import ForwardModel
 
+module = ForwardModel
+dataset = "datasets/Duan_1K.csv"
 device = torch.device("cuda" if torch.cuda.is_available() else "mps:0"  if torch.backends.mps.is_available() else "cpu")
-
+dlayer = True
 class SimDataset(Dataset):
     def __init__(self, dataframe):
         self.data = dataframe.copy().reset_index(drop=True)
@@ -16,14 +21,24 @@ class SimDataset(Dataset):
         self.base = [
             "S0","m","r","T","callput","alpha","beta","omega","gamma","lambda"
         ]
+        self.log_alpha = np.log(self.data["alpha"].values)
+        self.log_beta = np.log(self.data["beta"].values)
+        self.log_omega = np.log(self.data["omega"].values)
+        self.log_gamma = np.log(self.data["gamma"].values)
+        self.log_lambda = np.log(self.data["lambda"].values)
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         row = self.data.iloc[idx]
-        base_vals =  [row[b] for b in self.base]
-        X = torch.tensor(base_vals, dtype=torch.float32)
+        base_vals = [row[b] for b in self.base]
+        log_vals = [self.log_alpha[idx], self.log_beta[idx], self.log_omega[idx], self.log_gamma[idx], self.log_lambda[idx]]
+        # ensure both tensors are 1-D feature vectors before concatenation
+        base = torch.tensor(base_vals, dtype=torch.float32).view(-1)
+        log = torch.tensor(log_vals, dtype=torch.float32).view(-1)
+        # Concatenate along the feature axis -> resulting shape (n_features,)
+        X = torch.cat([base, log], dim=0)
         target = row["sigma"]
         Y = torch.tensor(target, dtype=torch.float32)
         return X, Y
@@ -75,10 +90,8 @@ def train_model(model: nn.Module, train_loader, val_loader, criterion, optimizer
 
             loss = criterion(output, target)
             loss.backward()
-
             optimizer.step()
             scheduler.step()
-
             train_loss += loss.item()
 
         avg_train_loss = train_loss/len(train_loader)
@@ -109,6 +122,7 @@ def eval_model(model: nn.Module, test_loader, criterion, device):
     total_loss = 0  # Initialize total loss counter
     predictions = []  # List to store model predictions
     targets = []  # List to store targets
+    losses = []  # List to store individual losses
 
     with torch.no_grad():  # Disable gradient computation for evaluation
         for X, Y in test_loader:  # Loop through batches
@@ -118,6 +132,7 @@ def eval_model(model: nn.Module, test_loader, criterion, device):
             target = Y.float().unsqueeze(1)
             loss = criterion(output, target)  # Calculate loss for batch
             total_loss += loss.item()  # Add batch loss to total
+            losses.append(loss.item())
 
             # Store predictions and targets as flattened arrays
             predictions.extend(
@@ -128,10 +143,10 @@ def eval_model(model: nn.Module, test_loader, criterion, device):
     avg_loss = total_loss / len(
         test_loader
     )  # Calculate average loss across all batches
-    return avg_loss, np.array(predictions), np.array(targets)
+    return avg_loss, np.array(predictions), np.array(targets), np.array(losses)
 
 def main():
-    data = pd.read_csv("datasets/varying_garch_parallel_1000.csv")
+    data = pd.read_csv(dataset)
 
     train_data, test_data = train_test_split(data)
     num_workers = 6
@@ -168,7 +183,7 @@ def main():
         pin_memory=True
     )
 
-    model = ForwardModel(dropout_rate=dropout_rate).to(device)
+    model = module(dropout_rate=dropout_rate, dlayer=dlayer).to(device)
     criterion = nn.HuberLoss().to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(),
@@ -181,16 +196,62 @@ def main():
     trained_model, tl, vl = train_model(
         model, train_loader, val_loader, criterion, optimizer, device, epochs=epochs
     )
+
+    # Plot training and validation losses
+    plt.figure(figsize=(10, 6))
+    plt.plot(tl, label='Training Loss')
+    plt.plot(vl, label='Validation Loss')
+    plt.xlabel('Epoch')
+    plt.ylabel('Loss')
+    plt.legend()
+    plt.title('Training and Validation Loss')
+    plt.tight_layout()
+    # Build a safe filename from the dataset path (strip directories and extension)
+    dataset_name = os.path.splitext(os.path.basename(dataset))[0]
+    filename = f"loss_plot_{dataset_name}_with_{"dlayer" if dlayer else "out_dlayer"}.png"
+    # Save before show (so the file is written even if show blocks or closes the figure)
+    plt.savefig(filename)
+    plt.show()
+    plt.close()
+
+
     # Evaluation
-    train_loss, train_pred, train_target = eval_model(
+    train_loss, train_pred, train_target, train_losses = eval_model(
         trained_model, train_loader, criterion, device
     )
-    test_loss, test_pred, test_target = eval_model(
+    test_loss, test_pred, test_target, test_losses = eval_model(
         trained_model, test_loader, criterion, device
     )
+    print("In-Sample Stats:")
+    disp_stats(train_losses, train_pred, train_target, f"Train_{dataset_name}_with_{"dlayer" if dlayer else "out_dlayer"}")
+    print("Out-of-Sample Stats:")
+    disp_stats(test_losses, test_pred, test_target, f"Test_{dataset_name}_with_{"dlayer" if dlayer else "out_dlayer"}")
 
-    print(train_loss, test_loss)
+def disp_stats(losses, pred, true, name):
+    mean = np.mean(losses)
+    corr = np.corrcoef(pred, true)
+    ninety_fifth = np.percentile(losses, 95)
+    ninety_ninth = np.percentile(losses, 99)
+    min = np.min(losses)
+    max = np.max(losses)
 
+    print(f"Mean: {mean}")
+    print(f"Correlation: {corr[0, 1]}")
+    print(f"95th Percentile: {ninety_fifth}")
+    print(f"99th Percentile: {ninety_ninth}")
+    print(f"Min: {min}")
+    print(f"Max: {max}")
+
+    df = pd.DataFrame({
+        'mean': [mean],
+        'corr': [corr[0, 1]],
+        'ninety_fifth': [ninety_fifth],
+        'ninety_ninth': [ninety_ninth],
+        'min': [min],
+        'max': [max]
+    })
+
+    df.to_csv(f"{name}_stats.csv", index=True)
 
 if __name__ == "__main__":
     main()
