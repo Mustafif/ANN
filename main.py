@@ -7,11 +7,12 @@ import sklearn
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset, RandomSampler, SubsetRandomSampler
+from torch_optimizer import Lookahead
 
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "datasets/Duan_1K.csv"
+dataset = "datasets/HN_1K.csv"
 device = torch.device("cuda" if torch.cuda.is_available() else "mps:0"  if torch.backends.mps.is_available() else "cpu")
 dlayer = True
 class SimDataset(Dataset):
@@ -21,11 +22,11 @@ class SimDataset(Dataset):
         self.base = [
             "S0","m","r","T","callput","alpha","beta","omega","gamma","lambda"
         ]
-        self.log_alpha = np.log(self.data["alpha"].values)
-        self.log_beta = np.log(self.data["beta"].values)
-        self.log_omega = np.log(self.data["omega"].values)
-        self.log_gamma = np.log(self.data["gamma"].values)
-        self.log_lambda = np.log(self.data["lambda"].values)
+        self.log_alpha = np.log(self.data["alpha"].values + 1e-8)
+        self.log_beta = np.log(self.data["beta"].values + 1e-8)
+        self.log_omega = np.log(self.data["omega"].values + 1e-8)
+        self.log_gamma = np.log(self.data["gamma"].values + 1e-8)
+        self.log_lambda = np.log(self.data["lambda"].values + 1e-8)
 
     def __len__(self):
         return len(self.data)
@@ -64,10 +65,10 @@ def train_val_split(dataset, val_size=0.2, random_state=42):
 
     return train_sampler, val_sampler
 
-def train_model(model: nn.Module, train_loader, val_loader, criterion, optimizer, device, epochs):
+def train_model(model: nn.Module, train_loader, val_loader, criterion, optimizer, base_opt, device, epochs):
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr = optimizer.param_groups[0]["lr"],
+        base_opt,
+        max_lr = base_opt.param_groups[0]["lr"],
         epochs=epochs,
         steps_per_epoch=len(train_loader),
         pct_start=0.3,
@@ -90,6 +91,7 @@ def train_model(model: nn.Module, train_loader, val_loader, criterion, optimizer
 
             loss = criterion(output, target)
             loss.backward()
+            # nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             scheduler.step()
             train_loss += loss.item()
@@ -185,7 +187,7 @@ def main():
 
     model = module(dropout_rate=dropout_rate, dlayer=dlayer).to(device)
     criterion = nn.HuberLoss().to(device)
-    optimizer = torch.optim.AdamW(
+    base_opt = torch.optim.AdamW(
         model.parameters(),
         lr=lr,
         weight_decay=weight_decay,
@@ -193,8 +195,10 @@ def main():
         eps=1e-8
     )
 
+    optimizer = Lookahead(base_opt, k=5, alpha=0.5)
+
     trained_model, tl, vl = train_model(
-        model, train_loader, val_loader, criterion, optimizer, device, epochs=epochs
+        model, train_loader, val_loader, criterion, optimizer, base_opt, device, epochs=epochs
     )
 
     # Plot training and validation losses
