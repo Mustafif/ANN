@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class ForwardModel(nn.Module):
-    def __init__(self, input_features=15, hidden_size=200, dropout_rate=0.0, num_layers=6, dlayer=True):
+    def __init__(self, input_features=15, hidden_size=250, dropout_rate=0.0, num_layers=6, dlayer=True):
         super().__init__()
         self.rnn = nn.LSTM(input_size=input_features, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, dropout=dropout_rate, bidirectional=True)
         # self.d_layer = DLayer(hidden_size*2)
@@ -17,7 +17,7 @@ class ForwardModel(nn.Module):
             x = x.unsqueeze(1)
         out, _ = self.rnn(x)
         last_out = out[:, -1, :]
-        last_out = self.bn(last_out)
+        # last_out = self.bn(last_out)
         # two hybrid layers
         # last_out = self.ln(last_out)
         d_out = self.hybrid_layer(last_out)
@@ -37,6 +37,7 @@ class ChaoticBase(torch.autograd.Function):
         elif type == 'd_relu':
             return torch.where(x >= a, x, torch.zeros_like(x))
         elif type == 'd_exponential':
+            # clamped = torch.clamp(torch.exp(x), min=1.0, max=3.0)
             return torch.where(x >= 0, torch.exp(x), torch.zeros_like(x))
         return x
 
