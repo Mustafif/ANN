@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class ForwardModel(nn.Module):
-    def __init__(self, input_features=15, hidden_size=250, dropout_rate=0.0, num_layers=6, dlayer=True):
+    def __init__(self, input_features=15, hidden_size=200, dropout_rate=0.0, num_layers=3, dlayer=True):
         super().__init__()
         self.rnn = nn.LSTM(input_size=input_features, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, dropout=dropout_rate, bidirectional=True)
         # self.d_layer = DLayer(hidden_size*2)
