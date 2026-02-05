@@ -13,7 +13,7 @@ from torch_optimizer import Lookahead
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "datasets/HN_100K.csv"
+dataset = "datasets/Duan_10K.csv"
 device = torch.device("cuda" if torch.cuda.is_available() else "mps:0"  if torch.backends.mps.is_available() else "cpu")
 dlayer = True
 
