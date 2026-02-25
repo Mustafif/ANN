@@ -21,7 +21,7 @@ class SimDataset(Dataset):
     def __init__(self, dataframe):
         # Filter and reset index
         df = dataframe.copy().reset_index(drop=True)
-        df = df[df["V"] > 0.5]  # clean dataset
+        # df = df[df["V"] > 0.5]  # clean dataset
 
         base_cols = ["S0", "m", "r", "T", "callput", "alpha", "beta", "omega", "gamma", "lambda"]
 
