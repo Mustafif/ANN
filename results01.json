@@ -1,1 +1,13 @@
-{"alpha": 1.3944573119856933e-06, "beta": 0.9114257132020877, "omega": 8.783501598499955e-07, "gamma": 4.08100741350143, "lambda": 0.011796298424632812, "alpha_true": 1.33e-06, "beta_true": 0.8, "omega_true": 1e-06, "gamma_true": 5.0, "lambda_true": 0.2, "two_norm_error": 0.9446606252451799}
+{
+  "alpha": 1.3944573119856933e-6,
+  "beta": 0.9114257132020877,
+  "omega": 8.783501598499955e-7,
+  "gamma": 4.08100741350143,
+  "lambda": 0.011796298424632812,
+  "alpha_true": 1.33e-6,
+  "beta_true": 0.8,
+  "omega_true": 1e-6,
+  "gamma_true": 5.0,
+  "lambda_true": 0.2,
+  "two_norm_error": 0.9446606252451799
+}
