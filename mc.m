@@ -2,7 +2,7 @@ clear all; clc; close all;
 format longE;
 % parameter order: alpha, beta, omega, gamma, lambda 
 true_p = [1.33e-6, 0.8, 1e-6, 5.0, 0.2];
-
+plotprefix = "Figs/lambda_1";
 calib_p = [1.15e-06 ...
     0.925541575411115 ...
     6.241474135503389e-06 ...
@@ -43,44 +43,101 @@ momentTable = array2table([X_true, X_calib, X_init], ...
                       'Calib_Mean', 'Calib_Variance', 'Calib_Skewness', 'Calib_Kurtosis', ...
                       'Init_Mean', 'Init_Variance', 'Init_Skewness', 'Init_Kurtosis'}, ...
     'RowNames', string(N));
-
-% Make a table for the relative error for each time period and label the
-% four moments mean, variance, skewness and kurtosis
+% 
+% % Make a table for the relative error for each time period and label the
+% % four moments mean, variance, skewness and kurtosis
 data = [rel_err_cal, rel_err_init];
-
+% 
 varNames = {'Mean Cal','Var Cal','Skew Cal','Kurt Cal', ...
             'Mean Init','Var Init','Skew Init','Kurt Init'};
 
 rel_err_table = array2table(data, 'VariableNames', varNames);
+% 
+% writetable(momentTable, "moments.csv");
+% writetable(rel_err_table, "relative_errors.csv");
 
-writetable(momentTable, "moments.csv");
-writetable(rel_err_table, "relative_errors.csv");
+trueVars  = ["True_Mean","True_Variance","True_Skewness","True_Kurtosis"];
+calibVars = ["Calib_Mean","Calib_Variance","Calib_Skewness","Calib_Kurtosis"];
+initVars  = ["Init_Mean","Init_Variance","Init_Skewness","Init_Kurtosis"];
+momNames  = ["mean","variance","skewness","kurtosis"];
+
+for k = 1:4
+    Tm = table( momentTable{:,trueVars(k)}, ...
+                momentTable{:,calibVars(k)}, ...
+                momentTable{:,initVars(k)}, ...
+                'VariableNames', {['True_',char(momNames(k))], ...
+                                  ['Calib_',char(momNames(k))], ...
+                                  ['Init_',char(momNames(k))]} );
+    Tm.Properties.RowNames = momentTable.Properties.RowNames;
+    writetable(Tm, sprintf('%s_moment_table.csv', momNames(k)), 'WriteRowNames', true);
+    assignin('base', sprintf('tbl_%s', momNames(k)), Tm);
+end
 
 
 % Plot the relative error for each time period and label each of the four
 % moments of calibrated and initial, mean, variance, skewness and kurtosis
-figure;
-hold on; 
-colors = lines(8);
-lineSpec = {'-', '--', ':', '-.'};
-for k = 1:4
-    plot(N', rel_err_cal(:, k), ...
-        'LineStyle', lineSpec{k}, 'Color', colors(k, :), ...
-        'LineWidth', 1.5);
+% figure;
+% hold on; 
+% colors = lines(8);
+% lineSpec = {'-', '--', ':', '-.'};
+% for k = 1:4
+%     plot(N', rel_err_cal(:, k), ...
+%         'LineStyle', lineSpec{k}, 'Color', colors(k, :), ...
+%         'LineWidth', 1.5);
+% end
+% 
+% for k = 1:4
+%     plot(N', rel_err_init(:, k), ...
+%         'LineStyle', lineSpec{k}, 'Color', colors(k+4, :), ...
+%         'LineWidth', 1.5, 'Marker', 'o', 'MarkerSize', 4);
+% end
+% 
+% xlabel('Time Period');
+% ylabel('Relative Error');
+% title('Relative Error by Moment: Calibrated vs Initial');
+% legend(varNames, 'Location', 'best');
+% grid on;
+% hold off;
+
+% Inputs: N, rel_err_cal (T-by-4), rel_err_init (T-by-4)
+% Optional: ensure column shape
+N = N(:);
+T = size(rel_err_cal,1);
+assert(numel(N) == T, 'Length of N must match rows of rel_err_cal');
+
+rel_err_cal = reshape(rel_err_cal, T, 4);
+rel_err_init = reshape(rel_err_init, T, 4);
+
+momNames = {'Mean','Variance','Skewness','Kurtosis'};
+colors = lines(2); % calibrated, initial
+lineSpec = {'-','--'};
+
+figure('Color','w');
+tiledlayout(4,1, 'Padding','compact', 'TileSpacing','compact');
+
+for m = 1:4
+    ax = nexttile;
+    hold(ax,'on');
+    plot(ax, N, rel_err_cal(:,m), lineSpec{1}, 'Color', colors(1,:), ...
+         'LineWidth', 1.5, 'DisplayName', 'Calibrated');
+    plot(ax, N, rel_err_init(:,m), lineSpec{2}, 'Color', colors(2,:), ...
+         'LineWidth', 1.5, 'DisplayName', 'Initial');
+    hold(ax,'off');
+    ylabel(ax, momNames{m});
+    grid(ax,'on');
+    if m == 1
+        title('Relative Error by Moment: Calibrated vs Initial');
+    end
+    if m == 4
+        xlabel('Time Period');
+    end
+    legend(ax,'show','Location','best');
 end
 
-for k = 1:4
-    plot(N', rel_err_init(:, k), ...
-        'LineStyle', lineSpec{k}, 'Color', colors(k+4, :), ...
-        'LineWidth', 1.5, 'Marker', 'o', 'MarkerSize', 4);
-end
+% Adjust figure size (optional)
+set(gcf,'Units','normalized','Position',[0.2 0.1 0.6 0.8]);
+exportgraphics(gcf,plotprefix + "_4Moms.png","Resolution",300);
 
-xlabel('Time Period');
-ylabel('Relative Error');
-title('Relative Error by Moment: Calibrated vs Initial');
-legend(varNames, 'Location', 'best');
-grid on;
-hold off;
 
 
 % momentTable already created as in your code
@@ -101,28 +158,29 @@ calibVars = ["Calib_Mean","Calib_Variance","Calib_Skewness","Calib_Kurtosis"];
 initVars  = ["Init_Mean","Init_Variance","Init_Skewness","Init_Kurtosis"];
 momNames  = {'Mean','Variance','Skewness','Kurtosis'};
 
-% figure('Color','w');
-% colors = lines(3); % True, Calib, Init
-% for m = 1:4
-%     ax = subplot(4,1,m);
-%     hold(ax,'on');
-%     p1 = plot(time, momentTable{:,trueVars(m)}, '-','Color',colors(1,:), 'LineWidth',1.5, 'DisplayName','True');
-%     p2 = plot(time, momentTable{:,calibVars(m)}, '--','Color',colors(2,:), 'LineWidth',1.5, 'DisplayName','Calibrated');
-%     p3 = plot(time, momentTable{:,initVars(m)}, ':','Color',colors(3,:), 'LineWidth',1.5, 'DisplayName','Initial');
-%     hold(ax,'off');
-%     ylabel(ax, momNames{m});
-%     if m==1
-%         title('Moments: True vs Calibrated vs Initial');
-%     end
-%     if m==4
-%         xlabel('Time Period');
-%     end
-%     grid(ax,'on');
-%     legend(ax,'show','Location','best');
-% end
+figure('Color','w');
+colors = lines(3); % True, Calib, Init
+for m = 1:4
+    ax = subplot(4,1,m);
+    hold(ax,'on');
+    p1 = plot(time, momentTable{:,trueVars(m)}, '-','Color',colors(1,:), 'LineWidth',1.5, 'DisplayName','True');
+    p2 = plot(time, momentTable{:,calibVars(m)}, '--','Color',colors(2,:), 'LineWidth',1.5, 'DisplayName','Calibrated');
+    p3 = plot(time, momentTable{:,initVars(m)}, ':','Color',colors(3,:), 'LineWidth',1.5, 'DisplayName','Initial');
+    hold(ax,'off');
+    ylabel(ax, momNames{m});
+    if m==1
+        title('Moments: True vs Calibrated vs Initial');
+    end
+    if m==4
+        xlabel('Time Period');
+    end
+    grid(ax,'on');
+    legend(ax,'show','Location','best');
+end
 
 % Optional: tighten layout
 set(gcf,'Units','normalized','Position',[0.2 0.1 0.6 0.8]);
+exportgraphics(gcf,plotprefix + "_RelErr.png","Resolution",300);
 
 function err =  rel_err(x_p, x)
     err = (abs(x_p - x) ./ abs(x));
