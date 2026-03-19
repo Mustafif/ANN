@@ -120,3 +120,20 @@ Lambda Calibrated: 0.018021270355291285 | Lambda True: 0.2
 Lambda Error: -0.18197872964470874
 Two Norm Error: 0.5887172461144548
 ```
+
+
+
+Calibration Time: 2222.46 seconds
+Alpha Calibrated: 1.15e-06 | Alpha True: 1.33e-06
+Alpha Error: -1.7999999999999997e-07
+Beta Calibrated: 0.13192205083030756 | Beta True: 0.8
+Beta Error: -0.6680779491696924
+Omega Calibrated: 1e-07 | Omega True: 1e-06
+Omega Error: -9e-07
+Gamma Calibrated: 4.629333421227091 | Gamma True: 5.0
+Gamma Error: -0.37066657877290865
+Lambda Calibrated: 0.0 | Lambda True: 0.2
+Lambda Error: -0.2
+Sigma_Eps: 0.1
+Two Norm Error: 0.7897606338548646
+
