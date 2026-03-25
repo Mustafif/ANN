@@ -1,0 +1,1 @@
+{"strategy": "rand2exp", "alpha": 1.1500237673759106e-06, "beta": 0.003012029535658795, "omega": 1.0000123064290733e-07, "gamma": 0.3445645862964694, "lambda": 0.04087430549610483, "alpha_true": 1.33e-06, "beta_true": 0.8, "omega_true": 1e-06, "gamma_true": 5.0, "lambda_true": 0.2, "two_norm_error": 4.725842750545349}

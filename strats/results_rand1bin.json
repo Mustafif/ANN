@@ -1,0 +1,1 @@
+{"strategy": "rand1bin", "alpha": 1.150009959455028e-06, "beta": 0.0028868800480889747, "omega": 1.0000297405791503e-07, "gamma": 0.24678575127221392, "lambda": 0.09981706716605962, "alpha_true": 1.33e-06, "beta_true": 0.8, "omega_true": 1e-06, "gamma_true": 5.0, "lambda_true": 0.2, "two_norm_error": 4.820629797063903}

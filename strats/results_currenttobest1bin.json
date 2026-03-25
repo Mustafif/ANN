@@ -1,0 +1,1 @@
+{"strategy": "currenttobest1bin", "alpha": 1.150003915228188e-06, "beta": 0.002786533325347138, "omega": 1.000001663953384e-07, "gamma": 0.12920560209396956, "lambda": 0.022214929706449237, "alpha_true": 1.33e-06, "beta_true": 0.8, "omega_true": 1e-06, "gamma_true": 5.0, "lambda_true": 0.2, "two_norm_error": 4.938805008232287}

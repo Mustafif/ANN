@@ -1,0 +1,1 @@
+{"strategy": "best1exp", "alpha": 1.1514271785732266e-06, "beta": 0.0025451491765514644, "omega": 1.0055907754131317e-07, "gamma": 0.10445448679233493, "lambda": 0.021024570485807748, "alpha_true": 1.33e-06, "beta_true": 0.8, "omega_true": 1e-06, "gamma_true": 5.0, "lambda_true": 0.2, "two_norm_error": 4.9632985317589124}
