@@ -1,5 +1,10 @@
 import json
 import time
+import warnings
+
+# Suppress all UserWarnings
+warnings.filterwarnings("ignore", category=UserWarning)
+
 
 import numpy as np
 import pandas as pd
@@ -25,11 +30,11 @@ nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 true_params = np.array([1.33e-6, 0.8, 1e-6, 5.0, 0.2])
 bounds = [
     (1.15e-6, 1.50e-6),  # alpha
-    (0, 0.99),  # beta
+    (0.2, 0.99),  # beta
     (1e-7, 1e-6),  # omega
-    (0, 10),  # gamma
-    (0, 1),  # lambda
-    (1e-1, 3e-1),  # sigma epsilon
+    (1, 7),  # gamma
+    (0.1, 1),  # lambda
+    (1e-2, 3e-1),  # sigma epsilon
 ]
 
 
@@ -95,9 +100,7 @@ def returns_loss(params, log_returns=LR, r=0.05 / 252.0):
             ** 2
         )
 
-    return -0.5 * torch.sum(
-        torch.log(h) + (log_returns - torch.pow((r + lambda_ * h), 2)) / h
-    )
+    return -0.5 * torch.sum(torch.log(h) + ((log_returns - (r + lambda_ * h)) ** 2) / h)
 
 
 def initial_guess(log_returns):
@@ -119,7 +122,8 @@ def initial_guess(log_returns):
         initial_ll,
         initial_params,
         bounds=bounds,
-        method="L-BFGS-B",
+        method="SLSQP",
+        constraints=(nlc,),
     )
 
     params = result.x
@@ -141,7 +145,7 @@ def calibration_HN_GARCH(
     seed=None,
     strategy="best1bin",
     bounds=bounds,
-    polish=True,
+    polish=False,
 ):
     log_returns, options_df = load_data(assets, options_data)
     S0 = options_df["S0"].values
@@ -157,6 +161,11 @@ def calibration_HN_GARCH(
         x0[3] = 5.0
     elif x0[4] == 0.0:
         x0[4] = 0.2
+
+    # Clip x0 to ensure it's strictly within bounds
+    x0 = np.clip(x0, [b[0] for b in bounds], [b[1] for b in bounds])
+
+    # x0 = np.array([1.33e-6, 0.8, 1e-6, 5.0, 0.2, 0.1])
     Y1_vals = []
     Y2_vals = []
 
@@ -231,7 +240,7 @@ def calibration_HN_GARCH(
                 ** 2
             )
 
-        Y1 = -0.5 * torch.sum(torch.log(h) + (lr - torch.pow((r + lambda_ * h), 2)) / h)
+        Y1 = -0.5 * torch.sum(torch.log(h) + ((lr - (r + lambda_ * h)) ** 2) / h)
         # print(f"Y1: {Y1}")
         Y1_vals.append(Y1)
 
@@ -243,7 +252,9 @@ def calibration_HN_GARCH(
             2 * torch.log(sigma_eps) + ((sigma_obs - sigma_model) / sigma_eps) ** 2
         )
         # Y2 = -torch.mean((torch.tensor(sigma_obs - sigma_model) / torch.tensor(sigma_obs)) ** 2)
-        # Y2 = -torch.mean(torch.tensor(((sigma_obs - sigma_model) / sigma_obs)) ** 2)
+        # Y2 = -0.5 * torch.mean(
+        #     torch.tensor(((sigma_obs - sigma_model) / sigma_obs)) ** 2
+        # )
         # Y2 = torch.nn.HuberLoss()(torch.tensor(sigma_obs), torch.tensor(sigma_model).view(-1))
         Y2_vals.append(Y2)
 
@@ -272,9 +283,21 @@ def calibration_HN_GARCH(
         callback=None,
         disp=True,
         polish=polish,
-        x0=x0,
         constraints=(nlc,),
+        # init="array",
     )
+    if not polish:
+        # Create initial population with x0 as first member
+        init_pop = np.random.rand(15, len(bounds))
+        for i in range(15):
+            for j in range(len(bounds)):
+                init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
+                    bounds[j][1] - bounds[j][0]
+                )
+        init_pop[0] = x0
+        kwargs["init"] = init_pop
+    else:
+        kwargs["x0"] = x0
     t0 = time.time()
     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
     t1 = time.time()
@@ -327,17 +350,17 @@ def calibration_HN_GARCH(
 if __name__ == "__main__":
     strategies = [
         "best1bin",
-        "best1exp",
-        "rand1exp",
-        "randtobest1exp",
-        "currenttobest1exp",
-        "best2exp",
-        "rand2exp",
-        "randtobest1bin",
-        "currenttobest1bin",
-        "best2bin",
-        "rand2bin",
-        "rand1bin",
+        # "best1exp",
+        # "rand1exp",
+        # "randtobest1exp",
+        # "currenttobest1exp",
+        # "best2exp",
+        # "rand2exp",
+        # "randtobest1bin",
+        # "currenttobest1bin",
+        # "best2bin",
+        # "rand2bin",
+        # "rand1bin",
     ]
 
     for strategy in strategies:

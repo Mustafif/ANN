@@ -1,1 +1,14 @@
-{"strategy": "best2bin", "alpha": 1.1500028695087122e-06, "beta": 0.0028061729302996568, "omega": 1.0000127494736969e-07, "gamma": 0.4195049162609978, "lambda": 0.034265658045351664, "alpha_true": 1.33e-06, "beta_true": 0.8, "omega_true": 1e-06, "gamma_true": 5.0, "lambda_true": 0.2, "two_norm_error": 4.652302771980688}
+{
+  "strategy": "best2bin",
+  "alpha": 1.1500028695087122e-6,
+  "beta": 0.0028061729302996568,
+  "omega": 1.0000127494736969e-7,
+  "gamma": 0.4195049162609978,
+  "lambda": 0.034265658045351664,
+  "alpha_true": 1.33e-6,
+  "beta_true": 0.8,
+  "omega_true": 1e-6,
+  "gamma_true": 5.0,
+  "lambda_true": 0.2,
+  "two_norm_error": 4.652302771980688
+}

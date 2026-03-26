@@ -3,19 +3,20 @@ format longE;
 % parameter order: alpha, beta, omega, gamma, lambda 
 true_p = [1.33e-6, 0.8, 1e-6, 5.0, 0.2];
 
-json_path = 'experiment/results_04.json';
+json_path = 'strats/results_best1bin.json';
 jsonStr = fileread(json_path);
 data = jsondecode(jsonStr);
 
 plotprefix = "Figs/lambda_1";
 calib_p = [ data.alpha, data.beta, data.omega, data.gamma, data.lambda
 ];
+   
 
 init_p = [1.50000000e-06 ...
-    5.00000015e-01...
+    5.00000011e-01...
     1.00000000e-06 ...
-    0.00000000e+00...
-    0.00000000e+00
+    1.00000000e+00...
+     1.00000000e-01
     ];
 
 N = [30, 60, 120, 252, 512, 1024];
