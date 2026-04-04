@@ -27,7 +27,7 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "HN_Set1_Noise5Perc"
+folder = "HN_Set1"
 
 
 bounds = [
@@ -75,21 +75,10 @@ def load_data(assets, options_data):
 
 def load_model(path, device):
     print(f"Loading neural network from {path}...")
-    try:
-        state_dict = torch.load(path, map_location=device)
-        lstm_layer_indices = []
-        for key in state_dict:
-            if key.startswith("rnn.weight_ih_l"):
-                suffix = key[len("rnn.weight_ih_l") :]
-                layer_str = suffix.split("_")[0]
-                if layer_str.isdigit():
-                    lstm_layer_indices.append(int(layer_str))
-        num_layers = (max(lstm_layer_indices) + 1) if lstm_layer_indices else 5
-        model = ForwardModel(dlayer=True, num_layers=num_layers)
-        model.load_state_dict(state_dict)
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        exit(1)
+    state_dict = torch.load(path, map_location=device, weights_only=True)
+    model = ForwardModel()
+    model.load_state_dict(state_dict)
+
     model.to(device)
     model.eval()
     return model
