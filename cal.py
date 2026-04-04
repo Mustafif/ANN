@@ -27,7 +27,9 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-true_params = np.array([1.33e-6, 0.8, 1e-6, 5.0, 0.2])
+folder = "HN_Set1_Noise5Perc"
+
+
 bounds = [
     (1.15e-6, 1.50e-6),  # alpha
     (0.2, 0.99),  # beta
@@ -46,8 +48,19 @@ device = torch.device(
     else "cpu"
 )
 model_path = "trained_model_HN_100K_with_dlayer.pth"
-asset_prices_path = "datasets/assetprices.csv"
-options_data_path = "datasets/scalable_hn_dataset_250x60.csv"
+asset_prices_path = f"{folder}/asset_prices_set_1.csv"
+options_data_path = f"{folder}/dataset_hn.csv"
+garch_params_path = f"{folder}/garch_parameters_hn.csv"
+garch_params = pd.read_csv(garch_params_path)
+true_params = np.array(
+    [
+        garch_params["alpha"].iloc[0],
+        garch_params["beta"].iloc[0],
+        garch_params["omega"].iloc[0],
+        garch_params["gamma"].iloc[0],
+        garch_params["lambda"].iloc[0],
+    ]
+)
 
 
 def load_data(assets, options_data):
@@ -62,9 +75,17 @@ def load_data(assets, options_data):
 
 def load_model(path, device):
     print(f"Loading neural network from {path}...")
-    model = ForwardModel(dlayer=True)
     try:
         state_dict = torch.load(path, map_location=device)
+        lstm_layer_indices = []
+        for key in state_dict:
+            if key.startswith("rnn.weight_ih_l"):
+                suffix = key[len("rnn.weight_ih_l") :]
+                layer_str = suffix.split("_")[0]
+                if layer_str.isdigit():
+                    lstm_layer_indices.append(int(layer_str))
+        num_layers = (max(lstm_layer_indices) + 1) if lstm_layer_indices else 5
+        model = ForwardModel(dlayer=True, num_layers=num_layers)
         model.load_state_dict(state_dict)
     except Exception as e:
         print(f"Error loading model: {e}")
@@ -104,14 +125,22 @@ def returns_loss(params, log_returns=LR, r=0.05 / 252.0):
 
 
 def initial_guess(log_returns):
-    garch11 = arch_model(log_returns, vol="GARCH", p=1, q=1, dist="normal")
+    variance = float(np.var(log_returns))
+    if not np.isfinite(variance) or variance <= 0.0:
+        variance = 1.0
+    # ARCH recommends data scale in [1, 1000]; target variance ~100.
+    target_variance = 100.0
+    return_scale = np.sqrt(target_variance / variance)
+    scaled_returns = log_returns * return_scale
+
+    garch11 = arch_model(scaled_returns, vol="GARCH", p=1, q=1, dist="normal")
     res = garch11.fit(disp="off")
 
     initial_params = np.array(
         [
             res.params["alpha[1]"],
             res.params["beta[1]"],
-            res.params["omega"],
+            res.params["omega"] / (return_scale**2),
             0.0,
             0.0,
             0.1,

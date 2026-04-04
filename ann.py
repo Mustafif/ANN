@@ -3,16 +3,30 @@ import torch.nn as nn
 
 
 class ForwardModel(nn.Module):
-    def __init__(self, input_features=15, hidden_size=200, dropout_rate=0.0, num_layers=3, dlayer=True):
+    def __init__(
+        self,
+        input_features=15,
+        hidden_size=200,
+        dropout_rate=0.0,
+        num_layers=5,
+        dlayer=True,
+    ):
         super().__init__()
-        self.rnn = nn.LSTM(input_size=input_features, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, dropout=dropout_rate, bidirectional=True)
+        self.rnn = nn.LSTM(
+            input_size=input_features,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout_rate,
+            bidirectional=True,
+        )
         # self.d_layer = DLayer(hidden_size*2)
-        self.hybrid_layer = HybridDLayer(hidden_size*2)
-        self.out = nn.Linear(hidden_size*2, 1)
+        self.hybrid_layer = HybridDLayer(hidden_size * 2)
+        self.out = nn.Linear(hidden_size * 2, 1)
         self.dlayer = dlayer
-        self.bn = nn.BatchNorm1d(hidden_size*2)
+        self.bn = nn.BatchNorm1d(hidden_size * 2)
 
-    def forward(self,x):
+    def forward(self, x):
         if x.dim() == 2:
             x = x.unsqueeze(1)
         out, _ = self.rnn(x)
@@ -23,20 +37,18 @@ class ForwardModel(nn.Module):
         d_out = self.hybrid_layer(last_out)
         # h_out = self.hybrid_layer(d_out)
 
-
         return nn.functional.softplus(self.out(d_out))
-
 
 
 # Custom Autograd function for Heaviside/Chaotic gradients as seen in [8]
 class ChaoticBase(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, x, type='heaviside', a=0.2):
-        if type == 'heaviside':
+    def forward(ctx, x, type="heaviside", a=0.2):
+        if type == "heaviside":
             return (x >= 0).float()
-        elif type == 'd_relu':
+        elif type == "d_relu":
             return torch.where(x >= a, x, torch.zeros_like(x))
-        elif type == 'd_exponential':
+        elif type == "d_exponential":
             # clamped = torch.clamp(torch.exp(x), min=1.0, max=3.0)
             return torch.where(x >= 0, torch.exp(x), torch.zeros_like(x))
         return x
@@ -46,24 +58,26 @@ class ChaoticBase(torch.autograd.Function):
         # Sources suggest setting chaotic gradients to zero for stability [8]
         return grad_output * 0, None, None
 
+
 class DLayer(nn.Module):
     def __init__(self, units):
         super().__init__()
         # Linear transformations for stable and chaotic components [10, 12]
         self.stable_linear = nn.Linear(units, units)
         self.chaotic_linear = nn.Linear(units, units)
-        self.shift = nn.Parameter(torch.zeros(units)) # Constant shift mu [9]
+        self.shift = nn.Parameter(torch.zeros(units))  # Constant shift mu [9]
 
     def forward(self, x):
         # f^c: Stable activation (e.g., ReLU) [10, 13]
         stable_out = torch.nn.functional.mish(self.stable_linear(x))
 
         # f^d: Chaotic activation (e.g., D-Exponential) [10, 11]
-        chaotic_val = ChaoticBase.apply(x, 'd_exponential')
+        chaotic_val = ChaoticBase.apply(x, "d_exponential")
         chaotic_out = self.chaotic_linear(chaotic_val)
 
         # Aggregation of components: mu + f^c + f^d [9, 10]
         return self.shift + stable_out + chaotic_out
+
 
 class HybridDLayer(nn.Module):
     def __init__(self, units, chaotic_ratio=0.2):
@@ -91,8 +105,8 @@ class HybridDLayer(nn.Module):
         base_out = torch.nn.functional.mish(base_out)
 
         # 2. Split neurons into C-type and D-type
-        stable_part = base_out[:, :self.n_stable]
-        chaotic_target_part = base_out[:, self.n_stable:]
+        stable_part = base_out[:, : self.n_stable]
+        chaotic_target_part = base_out[:, self.n_stable :]
 
         # 3. Compute chaotic component (f^d) for D-type neurons only
         # Example using D-Exponential (D3): exp(x) if x >= 0 else 0 [7]
@@ -100,7 +114,7 @@ class HybridDLayer(nn.Module):
         #                         torch.exp(chaotic_target_part),
         #                         torch.zeros_like(chaotic_target_part))
         chaos_in = self.chaotic_linear(chaotic_target_part)
-        raw_chaos = ChaoticBase.apply(chaos_in, 'd_exponential')
+        raw_chaos = ChaoticBase.apply(chaos_in, "d_exponential")
 
         # Apply weighting (alpha) and shift (mu) to the chaotic component [8]
         # Weighted Chaos: alpha * f^d
