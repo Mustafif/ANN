@@ -27,11 +27,20 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "HN_Set1"
+folder = "HN_Set1_Noise5Perc"
 
+
+# bounds = [
+#     (1e-6, 1.50e-6),  # alpha
+#     (0.2, 0.99),  # beta
+#     (1e-7, 1e-6),  # omega
+#     (1, 7),  # gamma
+#     (0.1, 1),  # lambda
+#     (1e-2, 1e-1),  # sigma epsilon
+# ]
 
 bounds = [
-    (1.15e-6, 1.50e-6),  # alpha
+    (1e-6, 1.50e-6),  # alpha
     (0.2, 0.99),  # beta
     (1e-7, 1e-6),  # omega
     (1, 7),  # gamma
@@ -155,12 +164,182 @@ def initial_guess(log_returns):
 hn_garch_model = load_model(model_path, device)
 
 
+# def calibration_HN_GARCH(
+#     assets,
+#     options_data,
+#     model=hn_garch_model,
+#     batch_size=2048,
+#     seed=None,
+#     strategy="best1bin",
+#     bounds=bounds,
+#     polish=False,
+# ):
+#     log_returns, options_df = load_data(assets, options_data)
+#     S0 = options_df["S0"].values
+#     m = options_df["m"].values
+#     r = options_df["r"].values
+#     T = options_df["T"].values
+#     corp = options_df["corp"].values
+#     V = options_df["V"].values
+#     sigma_obs = options_df["sigma"].values
+
+#     x0 = initial_guess(log_returns)
+#     if x0[3] == 0.0:
+#         x0[3] = 5.0
+#     elif x0[4] == 0.0:
+#         x0[4] = 0.2
+
+#     # Clip x0 to ensure it's strictly within bounds
+#     x0 = np.clip(x0, [b[0] for b in bounds], [b[1] for b in bounds])
+
+#     # x0 = np.array([1.33e-6, 0.8, 1e-6, 5.0, 0.2, 0.1])
+#     Y1_vals = []
+#     Y2_vals = []
+
+#     def objective_fn(
+#         x,
+#         lr=log_returns,
+#         S0=S0,
+#         m=m,
+#         r=r,
+#         T=T,
+#         corp=corp,
+#         V=V,
+#         sigma_obs=sigma_obs,
+#     ):
+#         x = np.clip(x, [b[0] for b in bounds], [b[1] for b in bounds])
+#         # sigma_eps = 1e-6
+#         alpha, beta, omega, gamma, lambda_, sigma_eps = x
+#         eps = 1e-8
+
+#         df = pd.DataFrame(
+#             {
+#                 "S0": S0,
+#                 "m": m,
+#                 "r": r,
+#                 "T": T,
+#                 "callput": corp,
+#                 "alpha": alpha,
+#                 "beta": beta,
+#                 "omega": omega,
+#                 "gamma": gamma,
+#                 "lambda": lambda_,
+#                 "sigma": sigma_obs,
+#                 "V": V,
+#             }
+#         )
+
+#         dataset = SimDataset(df)
+#         # sampler = RandomSampler(dataset)
+#         data_loader = DataLoader(
+#             dataset,
+#             batch_size=batch_size,
+#             # sampler=sampler,
+#             shuffle=False,
+#             pin_memory=True,
+#         )
+
+#         criterion = nn.HuberLoss().to(device)
+#         sigma_model = []
+#         with torch.no_grad():
+#             for X, _ in data_loader:
+#                 X = X.to(device)
+#                 output = model(X)
+#                 sigma_model.extend(output.cpu().numpy().flatten())
+
+#         sigma_model = np.array(sigma_model)
+#         lr_size = len(lr)
+#         lr = torch.tensor(lr)
+#         h = torch.zeros(lr_size)
+#         # h[0] = torch.var(lr)
+#         h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
+#         r = torch.tensor(0.05 / 252.0)
+
+#         for i in range(lr_size - 1):
+#             h[i + 1] = (
+#                 omega
+#                 + beta * h[i]
+#                 + alpha
+#                 * (
+#                     (lr[i] - r - lambda_ * h[i]) / torch.sqrt(h[i])
+#                     - gamma * torch.sqrt(h[i])
+#                 )
+#                 ** 2
+#             )
+
+#         Y1 = -0.5 * torch.sum(torch.log(h) + ((lr - (r + lambda_ * h)) ** 2) / h)
+#         # print(f"Y1: {Y1}")
+#         Y1_vals.append(Y1)
+
+#         sigma_eps = torch.tensor(sigma_eps)
+#         # sigma_obs = sigma_obs
+#         # sigma_model = sigma_model.view(-1)
+
+#         Y2 = -0.5 * torch.sum(
+#             2 * torch.log(sigma_eps) + ((sigma_obs - sigma_model) / sigma_eps) ** 2
+#         )
+#         # Y2 = -torch.mean((torch.tensor(sigma_obs - sigma_model) / torch.tensor(sigma_obs)) ** 2)
+#         # Y2 = -0.5 * torch.mean(
+#         #     torch.tensor(((sigma_obs - sigma_model) / sigma_obs)) ** 2
+#         # )
+#         # Y2 = torch.nn.HuberLoss()(torch.tensor(sigma_obs), torch.tensor(sigma_model).view(-1))
+#         Y2_vals.append(Y2)
+
+#         # print(f"Y2: {Y2}")
+
+#         N = lr_size
+#         M = len(sigma_obs)
+
+#         joint = ((N + M) / (2 * N)) * Y1 + ((N + M) / (2 * M)) * Y2
+#         return -joint
+
+#     # init_pop = np.random.rand(15, 5)
+#     # for i in range(15):
+#     #     for j in range(5):
+#     #         init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (bounds[j][1] - bounds[j][0])
+#     # init_pop[0] = x0
+#     kwargs = dict(
+#         args=(),
+#         strategy=strategy,
+#         maxiter=200,
+#         popsize=15,
+#         tol=1e-2,
+#         mutation=(0.5, 1),
+#         recombination=0.8,
+#         seed=seed,
+#         callback=None,
+#         disp=True,
+#         polish=polish,
+#         constraints=(nlc,),
+#         # init="array",
+#     )
+#     if not polish:
+#         # Create initial population with x0 as first member
+#         init_pop = np.random.rand(15, len(bounds))
+#         for i in range(15):
+#             for j in range(len(bounds)):
+#                 init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
+#                     bounds[j][1] - bounds[j][0]
+#                 )
+#         init_pop[0] = x0
+#         kwargs["init"] = init_pop
+#     else:
+#         kwargs["x0"] = x0
+#     t0 = time.time()
+#     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
+#     t1 = time.time()
+
+
+#     case_time = t1 - t0
+#     x = np.array(result.x)
+#     alpha, beta, omega, gamma, lambda_, sigma_eps = result.x
+#     alpha_true, beta_true, omega_true, gamma_true, lambda_true = true_params
 def calibration_HN_GARCH(
     assets,
     options_data,
     model=hn_garch_model,
     batch_size=2048,
-    seed=None,
+    seed=42,
     strategy="best1bin",
     bounds=bounds,
     polish=False,
@@ -183,9 +362,20 @@ def calibration_HN_GARCH(
     # Clip x0 to ensure it's strictly within bounds
     x0 = np.clip(x0, [b[0] for b in bounds], [b[1] for b in bounds])
 
-    # x0 = np.array([1.33e-6, 0.8, 1e-6, 5.0, 0.2, 0.1])
     Y1_vals = []
     Y2_vals = []
+
+    # Pre-calculate constant base features and move to target device
+    base_vals = np.column_stack([S0, m, r, T, corp]).astype(np.float32)
+    base_tensors = torch.tensor(base_vals, dtype=torch.float32, device=device)
+
+    sigma_obs_tensor = torch.tensor(sigma_obs, dtype=torch.float32, device=device)
+
+    lr_size = len(log_returns)
+    lr_tensor = torch.tensor(log_returns, dtype=torch.float32, device=device)
+    r_val = torch.tensor(0.05 / 252.0, dtype=torch.float32, device=device)
+
+    N_obs = len(sigma_obs_tensor)
 
     def objective_fn(
         x,
@@ -199,52 +389,33 @@ def calibration_HN_GARCH(
         sigma_obs=sigma_obs,
     ):
         x = np.clip(x, [b[0] for b in bounds], [b[1] for b in bounds])
-        # sigma_eps = 1e-6
         alpha, beta, omega, gamma, lambda_, sigma_eps = x
         eps = 1e-8
 
-        df = pd.DataFrame(
-            {
-                "S0": S0,
-                "m": m,
-                "r": r,
-                "T": T,
-                "callput": corp,
-                "alpha": alpha,
-                "beta": beta,
-                "omega": omega,
-                "gamma": gamma,
-                "lambda": lambda_,
-                "sigma": sigma_obs,
-                "V": V,
-            }
+        # 1. Dynamic Features
+        dyn_vals = torch.tensor(
+            [alpha, beta, omega, gamma, lambda_], dtype=torch.float32, device=device
         )
+        dyn_tensors = dyn_vals.expand(N_obs, 5)
 
-        dataset = SimDataset(df)
-        # sampler = RandomSampler(dataset)
-        data_loader = DataLoader(
-            dataset,
-            batch_size=batch_size,
-            # sampler=sampler,
-            shuffle=False,
-            pin_memory=True,
-        )
+        # 2. Log Features
+        log_vals = torch.log(dyn_vals + eps)
+        log_tensors = log_vals.expand(N_obs, 5)
 
-        criterion = nn.HuberLoss().to(device)
+        # 3. Concatenate all features (Shape: N x 15)
+        X = torch.cat([base_tensors, dyn_tensors, log_tensors], dim=1)
+
         sigma_model = []
         with torch.no_grad():
-            for X, _ in data_loader:
-                X = X.to(device)
-                output = model(X)
-                sigma_model.extend(output.cpu().numpy().flatten())
+            for i in range(0, N_obs, batch_size):
+                batch_X = X[i : i + batch_size]
+                output = model(batch_X)
+                sigma_model.append(output)
 
-        sigma_model = np.array(sigma_model)
-        lr_size = len(lr)
-        lr = torch.tensor(lr)
-        h = torch.zeros(lr_size)
-        # h[0] = torch.var(lr)
+        sigma_model_tensor = torch.cat(sigma_model).flatten()
+
+        h = torch.zeros(lr_size, dtype=torch.float32, device=device)
         h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
-        r = torch.tensor(0.05 / 252.0)
 
         for i in range(lr_size - 1):
             h[i + 1] = (
@@ -252,48 +423,61 @@ def calibration_HN_GARCH(
                 + beta * h[i]
                 + alpha
                 * (
-                    (lr[i] - r - lambda_ * h[i]) / torch.sqrt(h[i])
+                    (lr_tensor[i] - r_val - lambda_ * h[i]) / torch.sqrt(h[i])
                     - gamma * torch.sqrt(h[i])
                 )
                 ** 2
             )
 
-        Y1 = -0.5 * torch.sum(torch.log(h) + ((lr - (r + lambda_ * h)) ** 2) / h)
-        # print(f"Y1: {Y1}")
-        Y1_vals.append(Y1)
+        scale = 10
 
-        sigma_eps = torch.tensor(sigma_eps)
-        # sigma_obs = sigma_obs
-        # sigma_model = sigma_model.view(-1)
-
-        Y2 = -0.5 * torch.sum(
-            2 * torch.log(sigma_eps) + ((sigma_obs - sigma_model) / sigma_eps) ** 2
+        Y1 = (
+            -0.5
+            * scale
+            * torch.sum(torch.log(h) + ((lr_tensor - (r_val + lambda_ * h)) ** 2) / h)
         )
-        # Y2 = -torch.mean((torch.tensor(sigma_obs - sigma_model) / torch.tensor(sigma_obs)) ** 2)
-        # Y2 = -0.5 * torch.mean(
-        #     torch.tensor(((sigma_obs - sigma_model) / sigma_obs)) ** 2
-        # )
-        # Y2 = torch.nn.HuberLoss()(torch.tensor(sigma_obs), torch.tensor(sigma_model).view(-1))
-        Y2_vals.append(Y2)
+        Y1_vals.append(Y1.item())
 
-        # print(f"Y2: {Y2}")
+        sigma_eps_t = torch.tensor(sigma_eps, dtype=torch.float32, device=device)
 
-        N = lr_size
-        M = len(sigma_obs)
+        scale2 = 0.05
+        Y2 = (
+            -0.5
+            * scale2
+            * torch.sum(
+                2 * torch.log(sigma_eps_t)
+                + ((sigma_obs_tensor - sigma_model_tensor) / sigma_eps_t) ** 2
+            )
+        )
 
-        joint = ((N + M) / (2 * N)) * Y1 + ((N + M) / (2 * M)) * Y2
-        return -joint
+        Y2_vals.append(Y2.item())
 
-    # init_pop = np.random.rand(15, 5)
-    # for i in range(15):
-    #     for j in range(5):
-    #         init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (bounds[j][1] - bounds[j][0])
-    # init_pop[0] = x0
+        joint = ((lr_size + N_obs) / (2 * lr_size)) * Y1 + (
+            (lr_size + N_obs) / (2 * N_obs)
+        ) * Y2
+        return -joint.item()
+
+    # kwargs = dict(
+    #     args=(),
+    #     strategy=strategy,
+    #     maxiter=200,
+    #     popsize=15,
+    #     tol=1e-2,
+    #     mutation=(0.5, 1),
+    #     recombination=0.8,
+    #     seed=seed,
+    #     callback=None,
+    #     disp=True,
+    #     polish=polish,
+    #     constraints=(nlc,),
+    # )
+    #
+    popsize_multiplier = 15
     kwargs = dict(
         args=(),
         strategy=strategy,
         maxiter=200,
-        popsize=15,
+        popsize=popsize_multiplier,
         tol=1e-2,
         mutation=(0.5, 1),
         recombination=0.8,
@@ -302,12 +486,13 @@ def calibration_HN_GARCH(
         disp=True,
         polish=polish,
         constraints=(nlc,),
-        # init="array",
     )
+
     if not polish:
-        # Create initial population with x0 as first member
-        init_pop = np.random.rand(15, len(bounds))
-        for i in range(15):
+        # Create initial population dynamically sized based on popsize multiplier
+        pop_size_total = popsize_multiplier * len(bounds)
+        init_pop = np.random.rand(pop_size_total, len(bounds))
+        for i in range(pop_size_total):
             for j in range(len(bounds)):
                 init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
                     bounds[j][1] - bounds[j][0]
@@ -316,6 +501,7 @@ def calibration_HN_GARCH(
         kwargs["init"] = init_pop
     else:
         kwargs["x0"] = x0
+
     t0 = time.time()
     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
     t1 = time.time()
@@ -359,9 +545,14 @@ def calibration_HN_GARCH(
         "omega_true": omega_true,
         "gamma_true": gamma_true,
         "lambda_true": lambda_true,
+        "alpha_init": x0[0],
+        "beta_init": x0[1],
+        "omega_init": x0[2],
+        "gamma_init": x0[3],
+        "lambda_init": x0[4],
         "two_norm_error": np.linalg.norm(x[:5] - true_params, ord=2),
     }
-    with open(f"strats/results_{strategy}.json", "w") as f:
+    with open(f"strats/results_{strategy}_5perc.json", "w") as f:
         json.dump(results, f)
 
 
