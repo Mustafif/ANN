@@ -1,0 +1,19 @@
+{
+  "strategy": "best1bin",
+  "alpha": 1.0898304213033823e-6,
+  "beta": 0.860381519083303,
+  "omega": 8.282104498199605e-7,
+  "gamma": 2.7247457135916475,
+  "lambda": 0.3906279861794225,
+  "alpha_true": 1.28907238961758e-6,
+  "beta_true": 0.842684227670267,
+  "omega_true": 1.02919411267632e-7,
+  "gamma_true": 0.0,
+  "lambda_true": 0.578873054044507,
+  "alpha_init": 1.5e-6,
+  "beta_init": 0.46108893323539324,
+  "omega_init": 1e-6,
+  "gamma_init": 0.0,
+  "lambda_init": 0.1,
+  "two_norm_error": 2.731297970459377
+}

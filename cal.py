@@ -2,6 +2,8 @@ import json
 import time
 import warnings
 
+# HN: scale1 = 10; scale2 = 0.05
+# Duan: scale1 = 20; scale2 = 1
 # Suppress all UserWarnings
 warnings.filterwarnings("ignore", category=UserWarning)
 
@@ -27,8 +29,8 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "HN_Set1_Noise5Perc"
-
+folder = "Duan_Set2"
+garch_model = "duan"
 
 # bounds = [
 #     (1e-6, 1.50e-6),  # alpha
@@ -38,16 +40,27 @@ folder = "HN_Set1_Noise5Perc"
 #     (0.1, 1),  # lambda
 #     (1e-2, 1e-1),  # sigma epsilon
 # ]
-
-bounds = [
-    (1e-6, 1.50e-6),  # alpha
-    (0.2, 0.99),  # beta
-    (1e-7, 1e-6),  # omega
-    (1, 7),  # gamma
-    (0.1, 1),  # lambda
-    (1e-2, 3e-1),  # sigma epsilon
-]
-
+if garch_model == "hn":
+    bounds = [
+        (1e-6, 1.50e-6),  # alpha
+        (0.2, 0.99),  # beta
+        (1e-7, 1e-6),  # omega
+        (1, 7),  # gamma
+        (0.1, 1),  # lambda
+        (1e-2, 3e-1),  # sigma epsilon
+    ]
+else:
+    bounds = [
+        (1e-6, 1.50e-6),  # alpha
+        (0.2, 0.9),  # beta
+        (1e-7, 2e-7),  # omega
+        (0, 7),  # gamma
+        (0.1, 1),  # lambda
+        (1e-2, 3e-1),  # sigma epsilon
+    ]
+scale = 1
+scale2 = 1
+strategy = "best1bin"
 
 device = torch.device(
     "cuda"
@@ -56,10 +69,15 @@ device = torch.device(
     if torch.backends.mps.is_available()
     else "cpu"
 )
-model_path = "trained_model_HN_100K_with_dlayer.pth"
+
+model_path = (
+    "trained_model_HN_100K_with_dlayer.pth"
+    if garch_model == "hn"
+    else "trained_model_dataset_duan_with_dlayer.pth"
+)
 asset_prices_path = f"{folder}/asset_prices_set_1.csv"
-options_data_path = f"{folder}/dataset_hn.csv"
-garch_params_path = f"{folder}/garch_parameters_hn.csv"
+options_data_path = f"{folder}/dataset_{garch_model}.csv"
+garch_params_path = f"{folder}/garch_parameters_{garch_model}.csv"
 garch_params = pd.read_csv(garch_params_path)
 true_params = np.array(
     [
@@ -108,16 +126,28 @@ def returns_loss(params, log_returns=LR, r=0.05 / 252.0):
     h[0] = torch.var(log_returns)
 
     for i in range(size - 1):
-        h[i + 1] = (
-            omega
-            + beta * h[i]
-            + alpha
-            * (
-                (log_returns[i] - r - lambda_ * h[i]) / torch.sqrt(h[i])
-                - gamma * torch.sqrt(h[i])
+        if garch_model == "hn":
+            h[i + 1] = (
+                omega
+                + beta * h[i]
+                + alpha
+                * (
+                    (log_returns[i] - r - lambda_ * h[i]) / torch.sqrt(h[i])
+                    - gamma * torch.sqrt(h[i])
+                )
+                ** 2
             )
-            ** 2
-        )
+        else:
+            h[i + 1] = (
+                omega
+                + beta * h[i]
+                + (
+                    alpha
+                    * h[i]
+                    * ((log_returns[i] - r - lambda_ * h[i]) / torch.sqrt(h[i]) - gamma)
+                    ** 2
+                )
+            )
 
     return -0.5 * torch.sum(torch.log(h) + ((log_returns - (r + lambda_ * h)) ** 2) / h)
 
@@ -225,11 +255,11 @@ hn_garch_model = load_model(model_path, device)
 #                 "gamma": gamma,
 #                 "lambda": lambda_,
 #                 "sigma": sigma_obs,
-#                 "V": V,
+#                  "V": V,
 #             }
 #         )
 
-#         dataset = SimDataset(df)
+#         dataset == SimDataset(df)
 #         # sampler = RandomSampler(dataset)
 #         data_loader = DataLoader(
 #             dataset,
@@ -354,10 +384,10 @@ def calibration_HN_GARCH(
     sigma_obs = options_df["sigma"].values
 
     x0 = initial_guess(log_returns)
-    if x0[3] == 0.0:
-        x0[3] = 5.0
-    elif x0[4] == 0.0:
-        x0[4] = 0.2
+    # if x0[3] == 0.0:
+    #     x0[3] = 5.0
+    # elif x0[4] == 0.0:
+    #     x0[4] = 0.2
 
     # Clip x0 to ensure it's strictly within bounds
     x0 = np.clip(x0, [b[0] for b in bounds], [b[1] for b in bounds])
@@ -415,21 +445,38 @@ def calibration_HN_GARCH(
         sigma_model_tensor = torch.cat(sigma_model).flatten()
 
         h = torch.zeros(lr_size, dtype=torch.float32, device=device)
-        h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
+        if garch_model == "hn":
+            h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
+        else:
+            h[0] = omega / (1 - alpha - beta)
+        # h[0] = torch.var(lr_tensor)
 
         for i in range(lr_size - 1):
-            h[i + 1] = (
-                omega
-                + beta * h[i]
-                + alpha
-                * (
-                    (lr_tensor[i] - r_val - lambda_ * h[i]) / torch.sqrt(h[i])
-                    - gamma * torch.sqrt(h[i])
+            if garch_model == "hn":
+                h[i + 1] = (
+                    omega
+                    + beta * h[i]
+                    + alpha
+                    * (
+                        (lr_tensor[i] - r_val - lambda_ * h[i]) / torch.sqrt(h[i])
+                        - gamma * torch.sqrt(h[i])
+                    )
+                    ** 2
                 )
-                ** 2
-            )
-
-        scale = 10
+            else:
+                h[i + 1] = (
+                    omega
+                    + beta * h[i]
+                    + (
+                        alpha
+                        * h[i]
+                        * (
+                            ((lr_tensor[i] - r_val - lambda_ * h[i]) / torch.sqrt(h[i]))
+                            - gamma
+                        )
+                        ** 2
+                    )
+                )
 
         Y1 = (
             -0.5
@@ -440,7 +487,6 @@ def calibration_HN_GARCH(
 
         sigma_eps_t = torch.tensor(sigma_eps, dtype=torch.float32, device=device)
 
-        scale2 = 0.05
         Y2 = (
             -0.5
             * scale2
@@ -472,14 +518,14 @@ def calibration_HN_GARCH(
     #     constraints=(nlc,),
     # )
     #
-    popsize_multiplier = 15
+    popsize_multiplier = 25
     kwargs = dict(
         args=(),
         strategy=strategy,
         maxiter=200,
         popsize=popsize_multiplier,
-        tol=1e-2,
-        mutation=(0.5, 1),
+        tol=1e-7,
+        mutation=(0.5, 1.5),
         recombination=0.8,
         seed=seed,
         callback=None,
@@ -552,7 +598,7 @@ def calibration_HN_GARCH(
         "lambda_init": x0[4],
         "two_norm_error": np.linalg.norm(x[:5] - true_params, ord=2),
     }
-    with open(f"strats/results_{strategy}_5perc.json", "w") as f:
+    with open(f"strats/results_{strategy}_duan.json", "w") as f:
         json.dump(results, f)
 
 
@@ -572,10 +618,8 @@ if __name__ == "__main__":
         # "rand1bin",
     ]
 
-    for strategy in strategies:
-        print(f"Strategy: {strategy}")
-        calibration_HN_GARCH(
-            asset_prices_path,
-            options_data_path,
-            strategy=strategy,
-        )
+    calibration_HN_GARCH(
+        asset_prices_path,
+        options_data_path,
+        strategy=strategy,
+    )

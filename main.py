@@ -13,7 +13,7 @@ from torch_optimizer import Lookahead
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "datasets/HN_100K.csv"
+dataset = "Duan_train/dataset_duan.csv"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
@@ -35,7 +35,7 @@ class SimDataset(Dataset):
             "m",
             "r",
             "T",
-            "callput",
+            "corp",
             "alpha",
             "beta",
             "omega",

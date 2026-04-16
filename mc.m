@@ -1,23 +1,27 @@
 clear all; clc; close all;
 format longE;
 % parameter order: alpha, beta, omega, gamma, lambda 
-true_p = [1.33e-6, 0.8, 1e-6, 5.0, 0.2];
+% true_p = [1.33e-6, 0.8, 1e-6, 5.0, 0.2];
 
-json_path = 'strats/results_best1bin.json';
+json_path = 'strats/results_best1bin_duan.json';
 jsonStr = fileread(json_path);
 data = jsondecode(jsonStr);
 
 plotprefix = "Figs/lambda_1";
 calib_p = [ data.alpha, data.beta, data.omega, data.gamma, data.lambda
 ];
+true_p = [data.alpha_true, data.beta_true, data.omega_true, data.gamma_true, data.lambda_true
+];
+init_p = [data.alpha_init, data.beta_init, data.omega_init, data.gamma_init, data.lambda_init
+];
    
 
-init_p = [1.50000000e-06 ...
-    5.00000011e-01...
-    1.00000000e-06 ...
-    1.00000000e+00...
-     1.00000000e-01
-    ];
+% init_p = [1.50000000e-06 ...
+%     5.00000011e-01...
+%     1.00000000e-06 ...
+%     1.00000000e+00...
+%      1.00000000e-01
+%     ];
 
 N = [30, 60, 120, 252, 512, 1024];
 
@@ -189,7 +193,7 @@ function err =  rel_err(x_p, x)
 end
 
 function X = four_moments(N, alpha, beta, omega, gamma, lambda)
-    Rt = mcHN(N, alpha, beta, omega, gamma, lambda);
+    Rt = mcDuan(N, alpha, beta, omega, gamma, lambda);
     m = mean(Rt, "all");
     v = var(Rt, 0, "all");
     s = skewness(Rt, 0, "all");
@@ -211,6 +215,27 @@ Rt(1, :) = 0;
 for i = 2:N
     ht(i, :) = omega + beta.*ht(i-1, :) + alpha.*(Z(i-1, :) - gamma.*sqrt(ht(i-1, :))).^2;
     Rt(i, :) = (r*dt) + lambda.*ht(i, :) + Z(i, :).*sqrt(ht(i, :));
+end
+
+Rt = Rt(2:end, :);
+end
+
+function Rt = mcDuan(N, alpha, beta, omega, gamma, lambda)
+M = 1000; 
+dt = 1/N;
+Rt = zeros(N+1, M);
+ht = zeros(N+1, M);
+Z = randn(N+1, M);
+r = 0.05;
+
+ht(1, :) = (omega)/(1-beta-alpha);
+Rt(1, :) = 0;
+for i = 2:N
+    ht(i, :) = omega + beta.*ht(i-1, :) + alpha.*ht(i-1, :).*(Z(i-1, :) - gamma).^2;
+    Rt(i, :) = (r * dt) - ...  
+             0.5 * ht(i, :) + ...
+             lambda*sqrt(ht(i, :)) + ...
+             Z(i, :) .* sqrt(ht(i, :));
 end
 
 Rt = Rt(2:end, :);
