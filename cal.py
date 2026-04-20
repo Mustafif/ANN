@@ -53,12 +53,12 @@ else:
     bounds = [
         (1e-6, 1.50e-6),  # alpha
         (0.2, 0.9),  # beta
-        (1e-7, 2e-7),  # omega
+        (1e-7, 1e-6),  # omega
         (0, 7),  # gamma
         (0.1, 1),  # lambda
         (1e-2, 3e-1),  # sigma epsilon
     ]
-scale = 1
+scale = 24
 scale2 = 1
 strategy = "best1bin"
 
@@ -518,14 +518,14 @@ def calibration_HN_GARCH(
     #     constraints=(nlc,),
     # )
     #
-    popsize_multiplier = 25
+    popsize_multiplier = 15
     kwargs = dict(
         args=(),
         strategy=strategy,
         maxiter=200,
         popsize=popsize_multiplier,
-        tol=1e-7,
-        mutation=(0.5, 1.5),
+        tol=1e-2,
+        mutation=(0.5, 1),
         recombination=0.8,
         seed=seed,
         callback=None,

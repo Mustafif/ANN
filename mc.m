@@ -8,7 +8,7 @@ jsonStr = fileread(json_path);
 data = jsondecode(jsonStr);
 
 plotprefix = "Figs/lambda_1";
-calib_p = [ data.alpha, data.beta, data.omega, data.gamma, data.lambda
+calib_p = [ data.alpha, data.beta, data.omega_true, data.gamma, data.lambda
 ];
 true_p = [data.alpha_true, data.beta_true, data.omega_true, data.gamma_true, data.lambda_true
 ];
@@ -193,11 +193,13 @@ function err =  rel_err(x_p, x)
 end
 
 function X = four_moments(N, alpha, beta, omega, gamma, lambda)
-    Rt = mcDuan(N, alpha, beta, omega, gamma, lambda);
+    [Rt, ht] = mcDuan(N, alpha, beta, omega, gamma, lambda);
     m = mean(Rt, "all");
     v = var(Rt, 0, "all");
     s = skewness(Rt, 0, "all");
     k = kurtosis(Rt, 0, "all");
+
+    omega_unc = mean(ht, "all")*(1-beta-alpha)
 
     X = [m, v, s, k];
 end
@@ -220,7 +222,7 @@ end
 Rt = Rt(2:end, :);
 end
 
-function Rt = mcDuan(N, alpha, beta, omega, gamma, lambda)
+function [Rt, ht] = mcDuan(N, alpha, beta, omega, gamma, lambda)
 M = 1000; 
 dt = 1/N;
 Rt = zeros(N+1, M);
