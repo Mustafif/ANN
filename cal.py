@@ -52,14 +52,14 @@ if garch_model == "hn":
 else:
     bounds = [
         (1e-6, 1.50e-6),  # alpha
-        (0.2, 0.9),  # beta
+        (0.5, 0.9),  # beta
         (1e-7, 1e-6),  # omega
         (0, 7),  # gamma
-        (0.1, 1),  # lambda
-        (1e-2, 3e-1),  # sigma epsilon
+        (0.3, 0.6),  # lambda
+        (1e-3, 3e-1),  # sigma epsilon
     ]
-scale = 24
-scale2 = 1
+scale = 25
+scale2 = 0.1
 strategy = "best1bin"
 
 device = torch.device(
