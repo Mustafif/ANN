@@ -52,14 +52,14 @@ if garch_model == "hn":
 else:
     bounds = [
         (1e-6, 1.50e-6),  # alpha
-        (0.5, 0.9),  # beta
-        (1e-7, 1e-6),  # omega
-        (0, 7),  # gamma
+        (0.2, 0.9),  # beta
+        (2e-7, 1e-5),  # omega
+        (0, 1),  # gamma
         (0.3, 0.6),  # lambda
         (1e-3, 3e-1),  # sigma epsilon
     ]
-scale = 25
-scale2 = 0.1
+scale = 10
+scale2 = 1
 strategy = "best1bin"
 
 device = torch.device(
@@ -170,10 +170,12 @@ def initial_guess(log_returns):
             res.params["beta[1]"],
             res.params["omega"] / (return_scale**2),
             0.0,
-            0.0,
+            0.3,
             0.1,
         ]
     )
+
+    # try to calibrate initial also using differential evolution
 
     result = minimize(
         initial_ll,
@@ -183,12 +185,29 @@ def initial_guess(log_returns):
         constraints=(nlc,),
     )
 
+    # result = differential_evolution(
+    #     initial_ll,
+    #     bounds=bounds,
+    #     strategy="best1bin",
+    #     maxiter=50,
+    #     popsize=10,
+    #     tol=1e-2,
+    #     mutation=(0.5, 1),
+    #     recombination=0.8,
+    #     seed=42,
+    #     callback=None,
+    #     disp=True,
+    #     polish=False,
+    #     init="latinhypercube",
+    #     constraints=(nlc,),
+    # )
+
     params = result.x
     loss = -result.fun
     print("Initial Two-norm error:")
     print(np.linalg.norm(true_params - params[:5], ord=2))
     print(f"Initial Params: {params}")
-    return params
+    return params, initial_params
 
 
 hn_garch_model = load_model(model_path, device)
@@ -383,7 +402,7 @@ def calibration_HN_GARCH(
     V = options_df["V"].values
     sigma_obs = options_df["sigma"].values
 
-    x0 = initial_guess(log_returns)
+    _, x0 = initial_guess(log_returns)
     # if x0[3] == 0.0:
     #     x0[3] = 5.0
     # elif x0[4] == 0.0:
@@ -445,11 +464,11 @@ def calibration_HN_GARCH(
         sigma_model_tensor = torch.cat(sigma_model).flatten()
 
         h = torch.zeros(lr_size, dtype=torch.float32, device=device)
-        if garch_model == "hn":
-            h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
-        else:
-            h[0] = omega / (1 - alpha - beta)
-        # h[0] = torch.var(lr_tensor)
+        # if garch_model == "hn":
+        #     h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
+        # else:
+        #     h[0] = omega / (1 - alpha - beta)
+        h[0] = torch.var(lr_tensor)
 
         for i in range(lr_size - 1):
             if garch_model == "hn":
@@ -518,11 +537,11 @@ def calibration_HN_GARCH(
     #     constraints=(nlc,),
     # )
     #
-    popsize_multiplier = 15
+    popsize_multiplier = 20
     kwargs = dict(
         args=(),
         strategy=strategy,
-        maxiter=200,
+        maxiter=500,
         popsize=popsize_multiplier,
         tol=1e-2,
         mutation=(0.5, 1),
@@ -532,21 +551,22 @@ def calibration_HN_GARCH(
         disp=True,
         polish=polish,
         constraints=(nlc,),
+        init="halton",
     )
 
-    if not polish:
-        # Create initial population dynamically sized based on popsize multiplier
-        pop_size_total = popsize_multiplier * len(bounds)
-        init_pop = np.random.rand(pop_size_total, len(bounds))
-        for i in range(pop_size_total):
-            for j in range(len(bounds)):
-                init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
-                    bounds[j][1] - bounds[j][0]
-                )
-        init_pop[0] = x0
-        kwargs["init"] = init_pop
-    else:
-        kwargs["x0"] = x0
+    # if not polish:
+    #     # Create initial population dynamically sized based on popsize multiplier
+    #     pop_size_total = popsize_multiplier * len(bounds)
+    #     init_pop = np.random.rand(pop_size_total, len(bounds))
+    #     for i in range(pop_size_total):
+    #         for j in range(len(bounds)):
+    #             init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
+    #                 bounds[j][1] - bounds[j][0]
+    #             )
+    #     init_pop[0] = x0
+    #     kwargs["init"] = init_pop
+    # else:
+    #     kwargs["x0"] = x0
 
     t0 = time.time()
     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
@@ -578,6 +598,9 @@ def calibration_HN_GARCH(
     print(f"Two Norm Error: {np.linalg.norm(x[:5] - true_params, ord=2)}")
     print(f"Average Y1: {np.mean(np.array(Y1_vals))}")
     print(f"Average Y2: {np.mean(np.array(Y2_vals))}")
+    print(
+        f"Stationarity Check (beta + alpha * gamma^2): {beta + alpha * gamma**2} | True: {beta_true + alpha_true * gamma_true**2} | Init Check: {x0[1] + x0[0] * x0[3] ** 2}"
+    )
     # Save Results into JSON File
     results = {
         "strategy": strategy,

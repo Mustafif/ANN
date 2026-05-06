@@ -8,7 +8,7 @@ jsonStr = fileread(json_path);
 data = jsondecode(jsonStr);
 
 plotprefix = "Figs/lambda_1";
-calib_p = [ data.alpha, data.beta, data.omega_true, data.gamma, data.lambda
+calib_p = [ data.alpha, data.beta, data.omega, data.gamma, data.lambda
 ];
 true_p = [data.alpha_true, data.beta_true, data.omega_true, data.gamma_true, data.lambda_true
 ];
@@ -230,7 +230,7 @@ ht = zeros(N+1, M);
 Z = randn(N+1, M);
 r = 0.05;
 
-ht(1, :) = (omega)/(1-beta-alpha);
+ht(1, :) = 1e-6;
 Rt(1, :) = 0;
 for i = 2:N
     ht(i, :) = omega + beta.*ht(i-1, :) + alpha.*ht(i-1, :).*(Z(i-1, :) - gamma).^2;
