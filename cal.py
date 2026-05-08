@@ -58,7 +58,7 @@ else:
         (0.3, 0.6),  # lambda
         (1e-3, 3e-1),  # sigma epsilon
     ]
-scale = 10
+scale = 20
 scale2 = 1
 strategy = "best1bin"
 
@@ -543,7 +543,7 @@ def calibration_HN_GARCH(
         strategy=strategy,
         maxiter=500,
         popsize=popsize_multiplier,
-        tol=1e-2,
+        tol=1e-3,
         mutation=(0.5, 1),
         recombination=0.8,
         seed=seed,
@@ -551,7 +551,7 @@ def calibration_HN_GARCH(
         disp=True,
         polish=polish,
         constraints=(nlc,),
-        init="halton",
+        init="latinhypercube",
     )
 
     # if not polish:
@@ -576,22 +576,32 @@ def calibration_HN_GARCH(
     x = np.array(result.x)
     alpha, beta, omega, gamma, lambda_, sigma_eps = result.x
     alpha_true, beta_true, omega_true, gamma_true, lambda_true = true_params
-
+    eps = 1e-8
     print(f"Calibration Time: {case_time:.2f} seconds")
     print(f"Alpha Calibrated: {alpha} | Alpha True: {alpha_true}")
-    print(f"Alpha Error: {alpha - alpha_true}")
+    print(
+        f"Alpha Error: {alpha - alpha_true} | Perc Error: {(alpha - alpha_true) / (alpha_true + eps) * 100:.2f}%"
+    )
 
     print(f"Beta Calibrated: {beta} | Beta True: {beta_true}")
-    print(f"Beta Error: {beta - beta_true}")
+    print(
+        f"Beta Error: {beta - beta_true} | Perc Error: {(beta - beta_true) / (beta_true + eps) * 100:.2f}%"
+    )
 
     print(f"Omega Calibrated: {omega} | Omega True: {omega_true}")
-    print(f"Omega Error: {omega - omega_true}")
+    print(
+        f"Omega Error: {omega - omega_true} | Perc Error: {(omega - omega_true) / (omega_true + eps) * 100:.2f}%"
+    )
 
     print(f"Gamma Calibrated: {gamma} | Gamma True: {gamma_true}")
-    print(f"Gamma Error: {gamma - gamma_true}")
+    print(
+        f"Gamma Error: {gamma - gamma_true} | Perc Error: {(gamma - gamma_true) / (gamma_true + eps) * 100:.2f}%"
+    )
 
     print(f"Lambda Calibrated: {lambda_} | Lambda True: {lambda_true}")
-    print(f"Lambda Error: {lambda_ - lambda_true}")
+    print(
+        f"Lambda Error: {lambda_ - lambda_true} | Perc Error: {(lambda_ - lambda_true) / (lambda_true + eps) * 100:.2f}%"
+    )
 
     print(f"Sigma_Eps: {sigma_eps}")
 
