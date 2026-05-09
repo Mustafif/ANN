@@ -53,14 +53,15 @@ else:
     bounds = [
         (1e-6, 1.50e-6),  # alpha
         (0.2, 0.9),  # beta
-        (2e-7, 1e-5),  # omega
+        (1e-7, 1e-6),  # omega
         (0, 1),  # gamma
         (0.3, 0.6),  # lambda
-        (1e-3, 3e-1),  # sigma epsilon
+        (1e-2, 3e-1),  # sigma epsilon
     ]
-scale = 20
+
+scale = 1
 scale2 = 1
-strategy = "best1bin"
+strategy = "rand1bin"
 
 device = torch.device(
     "cuda"
@@ -388,7 +389,7 @@ def calibration_HN_GARCH(
     options_data,
     model=hn_garch_model,
     batch_size=2048,
-    seed=42,
+    seed=4234532,
     strategy="best1bin",
     bounds=bounds,
     polish=False,
