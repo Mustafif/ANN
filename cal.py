@@ -29,7 +29,7 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "Duan_Set2"
+folder = "ivy1996_109497"
 garch_model = "duan"
 
 # bounds = [
@@ -47,21 +47,21 @@ if garch_model == "hn":
         (1e-7, 1e-6),  # omega
         (1, 7),  # gamma
         (0.1, 1),  # lambda
-        (1e-2, 3e-1),  # sigma epsilon
+        (1e-3, 3e-1),  # sigma epsilon
     ]
 else:
     bounds = [
         (1e-6, 1.50e-6),  # alpha
-        (0.2, 0.9),  # beta
-        (1e-7, 1e-6),  # omega
-        (0, 1),  # gamma
+        (0.5, 0.85),  # beta
+        (1e-8, 1e-5),  # omega
+        (0.25, 0.5),  # gamma
         (0.3, 0.6),  # lambda
         (1e-2, 3e-1),  # sigma epsilon
     ]
 
 scale = 1
 scale2 = 1
-strategy = "rand1bin"
+strategy = "best1bin"
 
 device = torch.device(
     "cuda"
@@ -108,6 +108,7 @@ def load_model(path, device):
     model.load_state_dict(state_dict)
 
     model.to(device)
+    model.double()  # Cast model to float64 to match inputs
     model.eval()
     return model
 
@@ -390,6 +391,7 @@ def calibration_HN_GARCH(
     model=hn_garch_model,
     batch_size=2048,
     seed=4234532,
+    # seed=1111111111,
     strategy="best1bin",
     bounds=bounds,
     polish=False,
@@ -403,7 +405,7 @@ def calibration_HN_GARCH(
     V = options_df["V"].values
     sigma_obs = options_df["sigma"].values
 
-    _, x0 = initial_guess(log_returns)
+    x0, _ = initial_guess(log_returns)
     # if x0[3] == 0.0:
     #     x0[3] = 5.0
     # elif x0[4] == 0.0:
@@ -416,14 +418,14 @@ def calibration_HN_GARCH(
     Y2_vals = []
 
     # Pre-calculate constant base features and move to target device
-    base_vals = np.column_stack([S0, m, r, T, corp]).astype(np.float32)
-    base_tensors = torch.tensor(base_vals, dtype=torch.float32, device=device)
+    base_vals = np.column_stack([S0, m, r, T, corp]).astype(np.float64)
+    base_tensors = torch.tensor(base_vals, dtype=torch.float64, device=device)
 
-    sigma_obs_tensor = torch.tensor(sigma_obs, dtype=torch.float32, device=device)
+    sigma_obs_tensor = torch.tensor(sigma_obs, dtype=torch.float64, device=device)
 
     lr_size = len(log_returns)
-    lr_tensor = torch.tensor(log_returns, dtype=torch.float32, device=device)
-    r_val = torch.tensor(0.05 / 252.0, dtype=torch.float32, device=device)
+    lr_tensor = torch.tensor(log_returns, dtype=torch.float64, device=device)
+    r_val = torch.tensor(0.05 / 252.0, dtype=torch.float64, device=device)
 
     N_obs = len(sigma_obs_tensor)
 
@@ -444,7 +446,7 @@ def calibration_HN_GARCH(
 
         # 1. Dynamic Features
         dyn_vals = torch.tensor(
-            [alpha, beta, omega, gamma, lambda_], dtype=torch.float32, device=device
+            [alpha, beta, omega, gamma, lambda_], dtype=torch.float64, device=device
         )
         dyn_tensors = dyn_vals.expand(N_obs, 5)
 
@@ -464,12 +466,12 @@ def calibration_HN_GARCH(
 
         sigma_model_tensor = torch.cat(sigma_model).flatten()
 
-        h = torch.zeros(lr_size, dtype=torch.float32, device=device)
-        # if garch_model == "hn":
-        #     h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
-        # else:
-        #     h[0] = omega / (1 - alpha - beta)
-        h[0] = torch.var(lr_tensor)
+        h = torch.zeros(lr_size, dtype=torch.float64, device=device)
+        if garch_model == "hn":
+            h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
+        else:
+            h[0] = omega / (1 - alpha - beta)
+        # h[0] = torch.var(lr_tensor)
 
         for i in range(lr_size - 1):
             if garch_model == "hn":
@@ -505,7 +507,7 @@ def calibration_HN_GARCH(
         )
         Y1_vals.append(Y1.item())
 
-        sigma_eps_t = torch.tensor(sigma_eps, dtype=torch.float32, device=device)
+        sigma_eps_t = torch.tensor(sigma_eps, dtype=torch.float64, device=device)
 
         Y2 = (
             -0.5
@@ -518,9 +520,10 @@ def calibration_HN_GARCH(
 
         Y2_vals.append(Y2.item())
 
-        joint = ((lr_size + N_obs) / (2 * lr_size)) * Y1 + (
-            (lr_size + N_obs) / (2 * N_obs)
-        ) * Y2
+        # joint = ((lr_size + N_obs) / (2 * lr_size)) * Y1 + (
+        #     (lr_size + N_obs) / (2 * N_obs)
+        # ) * Y2
+        joint = Y1 + Y2
         return -joint.item()
 
     # kwargs = dict(
@@ -552,25 +555,33 @@ def calibration_HN_GARCH(
         disp=True,
         polish=polish,
         constraints=(nlc,),
-        init="latinhypercube",
+        # init="latinhypercube",
     )
 
-    # if not polish:
-    #     # Create initial population dynamically sized based on popsize multiplier
-    #     pop_size_total = popsize_multiplier * len(bounds)
-    #     init_pop = np.random.rand(pop_size_total, len(bounds))
-    #     for i in range(pop_size_total):
-    #         for j in range(len(bounds)):
-    #             init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
-    #                 bounds[j][1] - bounds[j][0]
-    #             )
-    #     init_pop[0] = x0
-    #     kwargs["init"] = init_pop
-    # else:
-    #     kwargs["x0"] = x0
+    if not polish:
+        # Create initial population dynamically sized based on popsize multiplier
+        pop_size_total = popsize_multiplier * len(bounds)
+        init_pop = np.random.rand(pop_size_total, len(bounds))
+        for i in range(pop_size_total):
+            for j in range(len(bounds)):
+                init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
+                    bounds[j][1] - bounds[j][0]
+                )
+        init_pop[0] = x0
+        kwargs["init"] = init_pop
+    else:
+        kwargs["x0"] = x0
 
     t0 = time.time()
     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
+    # result = minimize(
+    #     objective_fn,
+    #     result.x,
+    #     method="Nelder-Mead",
+    #     bounds=bounds,
+    #     tol=1e-2,
+    #     constraints=(nlc,),
+    # )
     t1 = time.time()
 
     case_time = t1 - t0
@@ -632,7 +643,7 @@ def calibration_HN_GARCH(
         "lambda_init": x0[4],
         "two_norm_error": np.linalg.norm(x[:5] - true_params, ord=2),
     }
-    with open(f"strats/results_{strategy}_duan.json", "w") as f:
+    with open(f"strats/results_{strategy}_{folder}.json", "w") as f:
         json.dump(results, f)
 
 
@@ -656,4 +667,11 @@ if __name__ == "__main__":
         asset_prices_path,
         options_data_path,
         strategy=strategy,
+    )
+
+    from mc_duan import run_moment_analysis
+
+    mt, re = run_moment_analysis(
+        json_path=f"strats/results_best1bin_{folder}.json",
+        plot_prefix=f"Figs/{folder}_best1bin",
     )

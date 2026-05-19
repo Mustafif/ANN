@@ -44,7 +44,7 @@ class SimDataset(Dataset):
         ]
 
         # 1. Base Features (Vectorized)
-        base_vals = df[base_cols].values.astype(np.float32)
+        base_vals = df[base_cols].values.astype(np.float64)
 
         # 2. Log Features (Vectorized)
         # Add epsilon to avoid log(0)
@@ -57,12 +57,12 @@ class SimDataset(Dataset):
                 np.log(df["gamma"].values + eps),
                 np.log(df["lambda"].values + eps),
             ]
-        ).astype(np.float32)
+        ).astype(np.float64)
 
         # 3. Concatenate and Convert to Tensor
         # Result shape: (N, 15)
-        self.X = torch.tensor(np.hstack([base_vals, log_vals]), dtype=torch.float32)
-        self.Y = torch.tensor(df["sigma"].values, dtype=torch.float32)
+        self.X = torch.tensor(np.hstack([base_vals, log_vals]), dtype=torch.float64)
+        self.Y = torch.tensor(df["sigma"].values, dtype=torch.float64)
 
     def __len__(self):
         return len(self.X)
@@ -171,7 +171,7 @@ def eval_model(model: nn.Module, test_loader, criterion, device):
     with torch.no_grad():  # Disable gradient computation for evaluation
         for X, Y in test_loader:  # Loop through batches
             X, Y = X.to(device), Y.to(device)  # Move data to device
-            output = model(X)  # Get model predictions
+            output = model(X.float())  # Get model predictions
             # Reshape target to match output dimensions
             target = Y.float().unsqueeze(1)
             loss = criterion(output, target)  # Calculate loss for batch

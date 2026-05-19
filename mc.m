@@ -8,7 +8,7 @@ jsonStr = fileread(json_path);
 data = jsondecode(jsonStr);
 
 plotprefix = "Figs/lambda_1";
-calib_p = [ data.alpha, data.beta, data.omega, data.gamma, data.lambda
+calib_p = [ data.alpha, data.beta, data.omega_true, data.gamma, data.lambda
 ];
 true_p = [data.alpha_true, data.beta_true, data.omega_true, data.gamma_true, data.lambda_true
 ];

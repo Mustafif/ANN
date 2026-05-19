@@ -3,7 +3,7 @@ name = "ann"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "torch==2.11.0",
     "pytorch-triton-rocm; sys_platform == \"linux\"",

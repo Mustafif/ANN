@@ -1,1 +1,19 @@
-{"strategy": "best1exp", "alpha": 1.2857267972620927e-06, "beta": 0.8999100684226236, "omega": 1.9977107064842269e-07, "gamma": 5.779586736818752, "lambda": 0.4113570446322732, "alpha_true": 1.28907238961758e-06, "beta_true": 0.842684227670267, "omega_true": 1.02919411267632e-07, "gamma_true": 0.0, "lambda_true": 0.578873054044507, "alpha_init": 1.5e-06, "beta_init": 0.46108893323539324, "omega_init": 2e-07, "gamma_init": 0.0, "lambda_init": 0.1, "two_norm_error": 5.782297057283589}
+{
+  "strategy": "best1exp",
+  "alpha": 1.2857267972620927e-6,
+  "beta": 0.8999100684226236,
+  "omega": 1.9977107064842269e-7,
+  "gamma": 5.779586736818752,
+  "lambda": 0.4113570446322732,
+  "alpha_true": 1.28907238961758e-6,
+  "beta_true": 0.842684227670267,
+  "omega_true": 1.02919411267632e-7,
+  "gamma_true": 0.0,
+  "lambda_true": 0.578873054044507,
+  "alpha_init": 1.5e-6,
+  "beta_init": 0.46108893323539324,
+  "omega_init": 2e-7,
+  "gamma_init": 0.0,
+  "lambda_init": 0.1,
+  "two_norm_error": 5.782297057283589
+}

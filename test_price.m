@@ -1,0 +1,1 @@
+S0=100; K=100; T=1; r=0.05; CorP=1; N=300; m_h=30; m_x=30; alpha=1e-6; beta=0.8; w=1e-6; lambda=0.1; gamma=0; h0=w/(1-alpha-beta); [sig,V,V0] = impVol_Duan(r, lambda, w, beta, alpha, gamma, h0, S0, K, T, N, m_h, m_x, CorP); disp(['Option Price: ', num2str(V0)]); disp(['Implied Vol: ', num2str(sig)]);
