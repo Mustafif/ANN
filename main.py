@@ -6,14 +6,13 @@ import pandas as pd
 import sklearn
 import torch
 import torch.nn as nn
-from sklearn.model_selection import KFold
 from torch.utils.data import DataLoader, Dataset, RandomSampler, SubsetRandomSampler
 from torch_optimizer import Lookahead
 
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "Duan_train/dataset_duan.csv"
+dataset = "GJR_20K/dataset_gjr.csv"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
@@ -21,7 +20,7 @@ device = torch.device(
     if torch.backends.mps.is_available()
     else "cpu"
 )
-dlayer = True
+dlayer = False
 
 
 class SimDataset(Dataset):
@@ -103,11 +102,11 @@ def train_model(
     base_opt,
     device,
     epochs,
-    val_loader=None,
+    val_loader,
 ):
     scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        base_opt,
-        max_lr=base_opt.param_groups[0]["lr"],
+        optimizer,
+        max_lr=optimizer.param_groups[0]["lr"],
         epochs=epochs,
         steps_per_epoch=len(train_loader),
         pct_start=0.3,
@@ -123,7 +122,7 @@ def train_model(
 
         for batch_X, batch_Y in train_loader:
             x, y = batch_X.to(device), batch_Y.to(device)
-            base_opt.zero_grad()
+            optimizer.zero_grad()
 
             output = model(x.float())
             target = y.float().unsqueeze(1)
@@ -190,150 +189,6 @@ def eval_model(model: nn.Module, test_loader, criterion, device):
     return avg_loss, np.array(predictions), np.array(targets), np.array(losses)
 
 
-def kf(
-    dataset, lr, weight_decay, k_folds=5, shuffle=True, dropout_rate=0.0, epochs=100
-):
-    """
-    Perform k-fold cross-validation on the dataset.
-    Returns the average validation loss across all folds.
-    """
-    kfold = KFold(n_splits=k_folds, shuffle=shuffle, random_state=42)
-    fold_results = []
-    all_train_losses = []
-    all_val_losses = []
-
-    for fold, (train_ids, val_ids) in enumerate(kfold.split(dataset)):
-        print(f"\n{'=' * 60}")
-        print(f"Fold {fold + 1}/{k_folds}")
-        print(f"{'=' * 60}")
-
-        train_subsampler = SubsetRandomSampler(train_ids)
-        val_subsampler = SubsetRandomSampler(val_ids)
-
-        train_loader = DataLoader(
-            dataset, batch_size=32, sampler=train_subsampler, pin_memory=True
-        )
-
-        val_loader = DataLoader(
-            dataset, batch_size=32, sampler=val_subsampler, pin_memory=True
-        )
-
-        model = module(dropout_rate=dropout_rate, dlayer=dlayer).to(device)
-        criterion = nn.HuberLoss().to(device)
-        base_opt = torch.optim.AdamW(
-            model.parameters(),
-            lr=lr,
-            weight_decay=weight_decay,
-            betas=(0.9, 0.999),
-            eps=1e-8,
-        )
-
-        optimizer = Lookahead(base_opt, k=5, alpha=0.5)
-
-        # Add scheduler for k-fold training
-        scheduler = torch.optim.lr_scheduler.OneCycleLR(
-            base_opt,
-            max_lr=lr,
-            epochs=epochs,
-            steps_per_epoch=len(train_loader),
-            pct_start=0.3,
-            anneal_strategy="cos",
-        )
-
-        fold_train_losses = []
-        fold_val_losses = []
-
-        # Training loop for this fold
-        for epoch in range(epochs):
-            model.train()
-            train_loss = 0
-
-            for inputs, targets in train_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                optimizer.zero_grad()
-                outputs = model(inputs.float())
-                target = targets.float().unsqueeze(1)
-                loss = criterion(outputs, target)
-                loss.backward()
-                optimizer.step()
-                scheduler.step()
-                train_loss += loss.item()
-
-            avg_train_loss = train_loss / len(train_loader)
-            fold_train_losses.append(avg_train_loss)
-
-            # Validation after each epoch
-            model.eval()
-            val_loss = 0
-            with torch.no_grad():
-                for inputs, targets in val_loader:
-                    inputs, targets = inputs.to(device), targets.to(device)
-                    outputs = model(inputs.float())
-                    target = targets.float().unsqueeze(1)
-                    loss = criterion(outputs, target)
-                    val_loss += loss.item()
-
-            avg_val_loss = val_loss / len(val_loader)
-            fold_val_losses.append(avg_val_loss)
-
-            # Print progress every 10 epochs
-            if (epoch + 1) % 10 == 0 or epoch == 0:
-                print(
-                    f"Epoch {epoch + 1}/{epochs}: Train Loss {avg_train_loss:.4f}, Val Loss {avg_val_loss:.4f}"
-                )
-
-        all_train_losses.append(fold_train_losses)
-        all_val_losses.append(fold_val_losses)
-
-        # Final validation metrics for this fold
-        model.eval()
-        predictions = []
-        targets_list = []
-
-        with torch.no_grad():
-            for inputs, targets in val_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs.float())
-                predictions.extend(outputs.cpu().numpy().flatten())
-                targets_list.extend(targets.cpu().numpy().flatten())
-
-        # Calculate correlation
-        predictions = np.array(predictions)
-        targets_array = np.array(targets_list)
-        correlation = np.corrcoef(predictions, targets_array)[0, 1]
-
-        fold_results.append(
-            {
-                "fold": fold + 1,
-                "val_loss": fold_val_losses[-1],  # Final validation loss
-                "correlation": correlation,
-            }
-        )
-
-        print(f"\nFold {fold + 1} Results:")
-        print(f"  Final Validation Loss: {fold_val_losses[-1]:.4f}")
-        print(f"  Correlation: {correlation:.4f}")
-
-    # Calculate average losses across folds for each epoch
-    avg_train_losses = np.mean(all_train_losses, axis=0)
-    avg_val_losses = np.mean(all_val_losses, axis=0)
-
-    # Print summary statistics
-    print(f"\n{'=' * 60}")
-    print("K-Fold Cross-Validation Summary")
-    print(f"{'=' * 60}")
-    avg_loss = np.mean([r["val_loss"] for r in fold_results])
-    std_loss = np.std([r["val_loss"] for r in fold_results])
-    avg_corr = np.mean([r["correlation"] for r in fold_results])
-    std_corr = np.std([r["correlation"] for r in fold_results])
-
-    print(f"Average Validation Loss: {avg_loss:.4f} ± {std_loss:.4f}")
-    print(f"Average Correlation: {avg_corr:.4f} ± {std_corr:.4f}")
-    print(f"{'=' * 60}\n")
-
-    return fold_results, avg_train_losses, avg_val_losses
-
-
 def main():
     data = pd.read_csv(dataset)
 
@@ -342,29 +197,8 @@ def main():
     lr = 0.001
     weight_decay = 1e-6
     batch_size = 32
-    epochs = 1000
+    epochs = 100
     dropout_rate = 0.0
-
-    # # Option 1: Use k-fold cross-validation (recommended for model selection)
-    # print("Starting K-Fold Cross Validation...")
-    # kf_results, kf_train_losses, kf_val_losses = kf(train_data, lr=lr, weight_decay=weight_decay, k_folds=5,
-    #                 shuffle=True, dropout_rate=dropout_rate, epochs=100)
-
-    # # Plot k-fold results
-    # plt.figure(figsize=(10, 6))
-    # plt.plot(kf_train_losses, label='K-Fold Avg Training Loss')
-    # plt.plot(kf_val_losses, label='K-Fold Avg Validation Loss')
-    # plt.xlabel('Epoch')
-    # plt.ylabel('Loss')
-    # plt.legend()
-    # plt.title('K-Fold Cross-Validation: Training and Validation Loss')
-    # plt.grid(True, alpha=0.3)
-    # plt.tight_layout()
-    # dataset_name = os.path.splitext(os.path.basename(dataset))[0]
-    # kf_filename = f"kfold_loss_plot_{dataset_name}_with_{"dlayer" if dlayer else "out_dlayer"}.png"
-    # plt.savefig(kf_filename)
-    # plt.show()
-    # plt.close()
 
     # Option 2: Train final model with train/val split
     # print("\nTraining final model with validation split...")
@@ -411,18 +245,19 @@ def main():
         model,
         train_loader,
         criterion,
-        optimizer,
         base_opt,
+        optimizer,
+        # base_opt,
         device,
-        epochs=epochs,
-        val_loader=val_loader,
+        epochs,
+        val_loader,
     )
 
     # Plot training and validation losses for final model
     plt.figure(figsize=(10, 6))
     plt.plot(tl, label="Training Loss")
-    if vl:  # Only plot validation loss if it exists
-        plt.plot(vl, label="Validation Loss")
+    # if vl:  # Only plot validation loss if it exists
+    #     plt.plot(vl, label="Validation Loss")
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.legend()
@@ -434,7 +269,7 @@ def main():
     filename = f"final_model_loss_plot_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.png"
     # Save before show (so the file is written even if show blocks or closes the figure)
     plt.savefig(filename)
-    plt.show()
+    # plt.show()
     plt.close()
 
     # Evaluation
@@ -446,10 +281,10 @@ def main():
     )
 
     # save the trained model
-    torch.save(
-        trained_model.state_dict(),
-        f"trained_model_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.pth",
-    )
+    # torch.save(
+    #     trained_model.state_dict(),
+    #     f"trained_model_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.pth",
+    # )
     print("\n" + "=" * 60)
     print("Final Model Evaluation")
     print("=" * 60)
@@ -477,12 +312,12 @@ def disp_stats(losses, pred, true, name):
     min_val = np.min(losses)
     max_val = np.max(losses)
 
-    print(f"Mean: {mean:.6f}")
-    print(f"Correlation: {corr[0, 1]:.6f}")
+    print(f"Mean: {mean:.12f}")
+    print(f"Correlation: {corr[0, 1]:.12f}")
     print(f"95th Percentile: {ninety_fifth:.6f}")
     print(f"99th Percentile: {ninety_ninth:.6f}")
-    print(f"Min: {min_val:.6f}")
-    print(f"Max: {max_val:.6f}")
+    print(f"Min: {min_val:.12f}")
+    print(f"Max: {max_val:.12f}")
 
     df = pd.DataFrame(
         {

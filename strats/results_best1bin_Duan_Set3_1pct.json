@@ -1,1 +1,19 @@
-{"strategy": "best1bin", "alpha": 1.0124443153653594e-06, "beta": 0.8498534233374071, "omega": 3.6519220678292294e-07, "gamma": 0.2501322921116787, "lambda": 0.3005028621374728, "alpha_true": 1.28907238961758e-06, "beta_true": 0.842684227670267, "omega_true": 1.02919411267632e-07, "gamma_true": 0.455506510125903, "lambda_true": 0.578873054044507, "alpha_init": 1.5e-06, "beta_init": 0.5, "omega_init": 3.0661506947625343e-06, "gamma_init": 0.25, "lambda_init": 0.3, "two_norm_error": 0.346005679915767}
+{
+  "strategy": "best1bin",
+  "alpha": 1.0124443153653594e-6,
+  "beta": 0.8498534233374071,
+  "omega": 3.6519220678292294e-7,
+  "gamma": 0.2501322921116787,
+  "lambda": 0.3005028621374728,
+  "alpha_true": 1.28907238961758e-6,
+  "beta_true": 0.842684227670267,
+  "omega_true": 1.02919411267632e-7,
+  "gamma_true": 0.455506510125903,
+  "lambda_true": 0.578873054044507,
+  "alpha_init": 1.5e-6,
+  "beta_init": 0.5,
+  "omega_init": 3.0661506947625343e-6,
+  "gamma_init": 0.25,
+  "lambda_init": 0.3,
+  "two_norm_error": 0.346005679915767
+}

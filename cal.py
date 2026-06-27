@@ -29,7 +29,7 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "ivy1996_109497"
+folder = "OEX"
 garch_model = "duan"
 
 # bounds = [
@@ -52,7 +52,7 @@ if garch_model == "hn":
 else:
     bounds = [
         (1e-6, 1.50e-6),  # alpha
-        (0.5, 0.85),  # beta
+        (0.5, 0.99),  # beta
         (1e-8, 1e-5),  # omega
         (0.25, 0.5),  # gamma
         (0.3, 0.6),  # lambda
@@ -98,7 +98,16 @@ def load_data(assets, options_data):
 
     options_df = pd.read_csv(options_data)
 
-    return log_returns, options_df
+    if "r" in options_df.columns and len(options_df) > 0:
+        r_vals = options_df["r"].values
+        if np.allclose(r_vals, r_vals[0]):
+            r_scalar = float(r_vals[0])
+        else:
+            r_scalar = float(np.mean(r_vals))
+    else:
+        r_scalar = 0.05 / 252.0
+
+    return log_returns, options_df, r_scalar
 
 
 def load_model(path, device):
@@ -113,14 +122,16 @@ def load_model(path, device):
     return model
 
 
-LR, _ = load_data(asset_prices_path, options_data_path)
+LR, _, R_DATA = load_data(asset_prices_path, options_data_path)
 
 
 def initial_ll(params):
     return -returns_loss(params)
 
 
-def returns_loss(params, log_returns=LR, r=0.05 / 252.0):
+def returns_loss(params, log_returns=LR, r=None):
+    if r is None:
+        r = R_DATA
     alpha, beta, omega, gamma, lambda_, _ = params
     size = len(log_returns)
     log_returns = torch.tensor(log_returns)
@@ -205,11 +216,20 @@ def initial_guess(log_returns):
     # )
 
     params = result.x
-    loss = -result.fun
+    loss = result.fun
     print("Initial Two-norm error:")
     print(np.linalg.norm(true_params - params[:5], ord=2))
     print(f"Initial Params: {params}")
-    return params, initial_params
+    print(f"Loss: {loss}")
+    k = len(params)
+    n = len(log_returns)
+    aic = 2 * k - 2 * np.log(loss)
+    bic = k * np.log(n) - 2 * np.log(loss)
+
+    print(f"AIC: {aic}")
+    print(f"BIC: {bic}")
+
+    return params, [aic, bic, loss]
 
 
 hn_garch_model = load_model(model_path, device)
@@ -396,7 +416,7 @@ def calibration_HN_GARCH(
     bounds=bounds,
     polish=False,
 ):
-    log_returns, options_df = load_data(assets, options_data)
+    log_returns, options_df, r_scalar = load_data(assets, options_data)
     S0 = options_df["S0"].values
     m = options_df["m"].values
     r = options_df["r"].values
@@ -405,7 +425,7 @@ def calibration_HN_GARCH(
     V = options_df["V"].values
     sigma_obs = options_df["sigma"].values
 
-    x0, _ = initial_guess(log_returns)
+    x0, crit = initial_guess(log_returns)
     # if x0[3] == 0.0:
     #     x0[3] = 5.0
     # elif x0[4] == 0.0:
@@ -425,7 +445,7 @@ def calibration_HN_GARCH(
 
     lr_size = len(log_returns)
     lr_tensor = torch.tensor(log_returns, dtype=torch.float64, device=device)
-    r_val = torch.tensor(0.05 / 252.0, dtype=torch.float64, device=device)
+    r_val = torch.tensor(r_scalar, dtype=torch.float64, device=device)
 
     N_obs = len(sigma_obs_tensor)
 
@@ -623,6 +643,16 @@ def calibration_HN_GARCH(
     print(
         f"Stationarity Check (beta + alpha * gamma^2): {beta + alpha * gamma**2} | True: {beta_true + alpha_true * gamma_true**2} | Init Check: {x0[1] + x0[0] * x0[3] ** 2}"
     )
+
+    k = 5
+    loss = result.fun
+    n = len(options_data)
+    aic = 2 * k - 2 * np.log(loss)
+    bic = k * np.log(n) - 2 * np.log(loss)
+
+    print(f"AIC: {aic}")
+    print(f"BIC: {bic}")
+    print(f"Loss: {loss}")
     # Save Results into JSON File
     results = {
         "strategy": strategy,
@@ -642,6 +672,12 @@ def calibration_HN_GARCH(
         "gamma_init": x0[3],
         "lambda_init": x0[4],
         "two_norm_error": np.linalg.norm(x[:5] - true_params, ord=2),
+        "aic": aic,
+        "bic": bic,
+        "aic_init": crit[0],
+        "bic_init": crit[1],
+        "loss": loss,
+        "loss_init": crit[2],
     }
     with open(f"strats/results_{strategy}_{folder}.json", "w") as f:
         json.dump(results, f)
