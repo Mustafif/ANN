@@ -13,7 +13,7 @@ from torch_optimizer import Lookahead
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "/home/mustafif/CNN_JC/data_gen/HN2_100K/dataset_hn.csv"
+dataset = "Duan2_100K/dataset_duan.csv"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
@@ -245,9 +245,13 @@ def main():
     num_workers = 6
 
     # Output folder
-    dataset_name = os.path.basename(dataset).split(".")[0]
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_dir = f"report_{dataset_name}_{timestamp}"
+    import os
+
+    # dataset is a path like "path/to/folder/file.csv"
+    dataset_dir = os.path.dirname(dataset)  # "path/to/folder"
+    dataset_name = os.path.basename(dataset_dir)  # "folder"
+
+    out_dir = f"report_{dataset_name}"
     os.makedirs(out_dir, exist_ok=True)
 
     # Data split (shared across both variants for fair comparison)

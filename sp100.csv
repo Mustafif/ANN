@@ -1,0 +1,106 @@
+Ticker,Company,Sector,Industry
+AAPL,Apple Inc.,Information Technology,Technology Hardware Storage & Peripherals
+ABBV,AbbVie Inc.,Health Care,Biotechnology
+ABT,Abbott Laboratories,Health Care,Health Care Equipment
+ACN,Accenture plc,Information Technology,IT Consulting & Other Services
+ADBE,Adobe Inc.,Information Technology,Application Software
+AMAT,Applied Materials Inc.,Information Technology,Semiconductor Materials & Equipment
+AMD,Advanced Micro Devices Inc.,Information Technology,Semiconductors
+AMGN,Amgen Inc.,Health Care,Biotechnology
+AMT,American Tower Corp.,Real Estate,Telecom Tower REITs
+AMZN,Amazon.com Inc.,Consumer Discretionary,Broadline Retail
+AVGO,Broadcom Inc.,Information Technology,Semiconductors
+AXP,American Express Co.,Financials,Consumer Finance
+BA,Boeing Co.,Industrials,Aerospace & Defense
+BAC,Bank of America Corp.,Financials,Diversified Banks
+BK,BNY Mellon Corp.,Financials,Asset Management & Custody Banks
+BKNG,Booking Holdings Inc.,Consumer Discretionary,Hotels Resorts & Cruise Lines
+BLK,BlackRock Inc.,Financials,Asset Management & Custody Banks
+BMY,Bristol Myers Squibb Co.,Health Care,Pharmaceuticals
+BRK.B,Berkshire Hathaway Inc. Class B,Financials,Multi-Sector Holdings
+C,Citigroup Inc.,Financials,Diversified Banks
+CAT,Caterpillar Inc.,Industrials,Construction Machinery & Heavy Transportation Equipment
+CHTR,Charter Communications Inc. Class A,Communication Services,Cable & Satellite
+CL,Colgate-Palmolive Co.,Consumer Staples,Household Products
+CMCSA,Comcast Corp. Class A,Communication Services,Cable & Satellite
+COF,Capital One Financial Corp.,Financials,Consumer Finance
+COP,ConocoPhillips,Energy,Oil & Gas Exploration & Production
+COST,Costco Wholesale Corp.,Consumer Staples,Consumer Staples Merchandise Retail
+CRM,Salesforce Inc.,Information Technology,Application Software
+CSCO,Cisco Systems Inc.,Information Technology,Communications Equipment
+CVS,CVS Health Corp.,Health Care,Health Care Services
+CVX,Chevron Corp.,Energy,Integrated Oil & Gas
+DE,Deere & Company,Industrials,Agricultural & Farm Machinery
+DHR,Danaher Corp.,Health Care,Life Sciences Tools & Services
+DIS,Walt Disney Co.,Communication Services,Movies & Entertainment
+DUK,Duke Energy Corp.,Utilities,Electric Utilities
+EMR,Emerson Electric Co.,Industrials,Electrical Components & Equipment
+FDX,FedEx Corp.,Industrials,Air Freight & Logistics
+GD,General Dynamics Corp.,Industrials,Aerospace & Defense
+GE,GE Aerospace,Industrials,Aerospace & Defense
+GEV,GE Vernova Inc.,Industrials,Heavy Electrical Equipment
+GILD,Gilead Sciences Inc.,Health Care,Biotechnology
+GM,General Motors Co.,Consumer Discretionary,Automobile Manufacturers
+GOOG,Alphabet Inc. Class C,Communication Services,Interactive Media & Services
+GOOGL,Alphabet Inc. Class A,Communication Services,Interactive Media & Services
+GS,Goldman Sachs Group Inc.,Financials,Investment Banking & Brokerage
+HD,Home Depot Inc.,Consumer Discretionary,Home Improvement Retail
+HON,Honeywell International Inc.,Industrials,Industrial Conglomerates
+IBM,International Business Machines Corp.,Information Technology,IT Consulting & Other Services
+INTC,Intel Corp.,Information Technology,Semiconductors
+INTU,Intuit Inc.,Information Technology,Application Software
+ISRG,Intuitive Surgical Inc.,Health Care,Health Care Equipment
+JNJ,Johnson & Johnson,Health Care,Pharmaceuticals
+JPM,JPMorgan Chase & Co.,Financials,Diversified Banks
+KHC,Kraft Heinz Co.,Consumer Staples,Packaged Foods & Meats
+KMI,Kinder Morgan Inc.,Energy,Oil & Gas Storage & Transportation
+KO,Coca-Cola Co.,Consumer Staples,Soft Drinks & Non-alcoholic Beverages
+LIN,Linde plc,Materials,Industrial Gases
+LLY,Eli Lilly and Co.,Health Care,Pharmaceuticals
+LMT,Lockheed Martin Corp.,Industrials,Aerospace & Defense
+LOW,Lowe's Companies Inc.,Consumer Discretionary,Home Improvement Retail
+LRCX,Lam Research Corp.,Information Technology,Semiconductor Materials & Equipment
+MA,Mastercard Inc.,Financials,Transaction & Payment Processing Services
+MCD,McDonald's Corp.,Consumer Discretionary,Restaurants
+MDLZ,Mondelez International Inc.,Consumer Staples,Packaged Foods & Meats
+MDT,Medtronic plc,Health Care,Health Care Equipment
+MET,MetLife Inc.,Financials,Life & Health Insurance
+META,Meta Platforms Inc.,Communication Services,Interactive Media & Services
+MMC,Marsh & McLennan Companies Inc.,Financials,Insurance Brokers
+MMM,3M Co.,Industrials,Industrial Conglomerates
+MO,Altria Group Inc.,Consumer Staples,Tobacco
+MRK,Merck & Co. Inc.,Health Care,Pharmaceuticals
+MS,Morgan Stanley,Financials,Investment Banking & Brokerage
+MSFT,Microsoft Corp.,Information Technology,Systems Software
+MU,Micron Technology Inc.,Information Technology,Semiconductors
+NEE,NextEra Energy Inc.,Utilities,Multi-Utilities
+NFLX,Netflix Inc.,Communication Services,Movies & Entertainment
+NKE,Nike Inc.,Consumer Discretionary,Footwear
+NVDA,NVIDIA Corp.,Information Technology,Semiconductors
+ORCL,Oracle Corp.,Information Technology,Application Software
+PEP,PepsiCo Inc.,Consumer Staples,Soft Drinks & Non-alcoholic Beverages
+PFE,Pfizer Inc.,Health Care,Pharmaceuticals
+PG,Procter & Gamble Co.,Consumer Staples,Household Products
+PM,Philip Morris International Inc.,Consumer Staples,Tobacco
+PYPL,PayPal Holdings Inc.,Financials,Transaction & Payment Processing Services
+QCOM,QUALCOMM Inc.,Information Technology,Semiconductors
+RTX,RTX Corp.,Industrials,Aerospace & Defense
+SCHW,Charles Schwab Corp.,Financials,Investment Banking & Brokerage
+SLB,SLB,Energy,Oil & Gas Equipment & Services
+SO,Southern Co.,Utilities,Electric Utilities
+SPGI,S&P Global Inc.,Financials,Financial Exchanges & Data
+T,AT&T Inc.,Communication Services,Integrated Telecommunication Services
+TGT,Target Corp.,Consumer Staples,Consumer Staples Merchandise Retail
+TMO,Thermo Fisher Scientific Inc.,Health Care,Life Sciences Tools & Services
+TMUS,T-Mobile US Inc.,Communication Services,Wireless Telecommunication Services
+TSLA,Tesla Inc.,Consumer Discretionary,Automobile Manufacturers
+TXN,Texas Instruments Inc.,Information Technology,Semiconductors
+UNH,UnitedHealth Group Inc.,Health Care,Managed Health Care
+UNP,Union Pacific Corp.,Industrials,Rail Transportation
+UPS,United Parcel Service Inc.,Industrials,Air Freight & Logistics
+USB,U.S. Bancorp,Financials,Diversified Banks
+V,Visa Inc.,Financials,Transaction & Payment Processing Services
+VZ,Verizon Communications Inc.,Communication Services,Integrated Telecommunication Services
+WFC,Wells Fargo & Co.,Financials,Diversified Banks
+WMT,Walmart Inc.,Consumer Staples,Consumer Staples Merchandise Retail
+XOM,Exxon Mobil Corp.,Energy,Integrated Oil & Gas

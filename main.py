@@ -12,7 +12,7 @@ from torch_optimizer import Lookahead
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "GJR_20K/dataset_gjr.csv"
+dataset = "Duan2_50K/dataset_duan.csv"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
@@ -27,7 +27,7 @@ class SimDataset(Dataset):
     def __init__(self, dataframe):
         # Filter and reset index
         df = dataframe.copy().reset_index(drop=True)
-        # df = df[df["V"] > 0.5]  # clean dataset
+        df = df[df["V"] > 0.5]  # clean dataset
 
         base_cols = [
             "S0",
