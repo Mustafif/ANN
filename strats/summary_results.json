@@ -1,0 +1,23 @@
+{
+  "OEX": {
+    "duan": {
+      "error": "name 'true_params' is not defined"
+    },
+    "hn": {
+      "error": "Error(s) in loading state_dict for ForwardModel:\n\tMissing key(s) in state_dict: \"hybrid_layer.stable_linear.weight\", \"hybrid_layer.stable_linear.bias\", \"hybrid_layer.chaotic_linear.weight\", \"hybrid_layer.chaotic_linear.bias\", \"hybrid_layer.pre_ln.weight\", \"hybrid_layer.pre_ln.bias\". \n\tUnexpected key(s) in state_dict: \"hybrid_layer.linear_stable.weight\", \"hybrid_layer.linear_stable.bias\", \"hybrid_layer.linear_chaotic.weight\", \"hybrid_layer.linear_chaotic.bias\". \n\tsize mismatch for hybrid_layer.mu: copying a param with shape torch.Size([400]) from checkpoint, the shape in current model is torch.Size([80]).\n\tsize mismatch for hybrid_layer.alpha: copying a param with shape torch.Size([400]) from checkpoint, the shape in current model is torch.Size([80])."
+    }
+  },
+  "Duan_Set1": {
+    "duan": {
+      "error": "name 'true_params' is not defined"
+    },
+    "hn": {
+      "error": "Error(s) in loading state_dict for ForwardModel:\n\tMissing key(s) in state_dict: \"hybrid_layer.stable_linear.weight\", \"hybrid_layer.stable_linear.bias\", \"hybrid_layer.chaotic_linear.weight\", \"hybrid_layer.chaotic_linear.bias\", \"hybrid_layer.pre_ln.weight\", \"hybrid_layer.pre_ln.bias\". \n\tUnexpected key(s) in state_dict: \"hybrid_layer.linear_stable.weight\", \"hybrid_layer.linear_stable.bias\", \"hybrid_layer.linear_chaotic.weight\", \"hybrid_layer.linear_chaotic.bias\". \n\tsize mismatch for hybrid_layer.mu: copying a param with shape torch.Size([400]) from checkpoint, the shape in current model is torch.Size([80]).\n\tsize mismatch for hybrid_layer.alpha: copying a param with shape torch.Size([400]) from checkpoint, the shape in current model is torch.Size([80])."
+    }
+  },
+  "HN_Set1": {
+    "hn": {
+      "error": "Error(s) in loading state_dict for ForwardModel:\n\tMissing key(s) in state_dict: \"hybrid_layer.stable_linear.weight\", \"hybrid_layer.stable_linear.bias\", \"hybrid_layer.chaotic_linear.weight\", \"hybrid_layer.chaotic_linear.bias\", \"hybrid_layer.pre_ln.weight\", \"hybrid_layer.pre_ln.bias\". \n\tUnexpected key(s) in state_dict: \"hybrid_layer.linear_stable.weight\", \"hybrid_layer.linear_stable.bias\", \"hybrid_layer.linear_chaotic.weight\", \"hybrid_layer.linear_chaotic.bias\". \n\tsize mismatch for hybrid_layer.mu: copying a param with shape torch.Size([400]) from checkpoint, the shape in current model is torch.Size([80]).\n\tsize mismatch for hybrid_layer.alpha: copying a param with shape torch.Size([400]) from checkpoint, the shape in current model is torch.Size([80])."
+    }
+  }
+}

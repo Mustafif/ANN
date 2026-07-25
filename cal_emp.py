@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import warnings
 
@@ -6,7 +7,6 @@ import warnings
 # Duan: scale1 = 20; scale2 = 1
 # Suppress all UserWarnings
 warnings.filterwarnings("ignore", category=UserWarning)
-
 
 import numpy as np
 import pandas as pd
@@ -29,17 +29,10 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "OEX"
+SRC2_ROOT = "src2"
+REPORT_DIR = "strats"
 garch_model = "duan"
 
-# bounds = [
-#     (1e-6, 1.50e-6),  # alpha
-#     (0.2, 0.99),  # beta
-#     (1e-7, 1e-6),  # omega
-#     (1, 7),  # gamma
-#     (0.1, 1),  # lambda
-#     (1e-2, 1e-1),  # sigma epsilon
-# ]
 if garch_model == "hn":
     bounds = [
         (1e-6, 1.50e-6),  # alpha
@@ -78,19 +71,8 @@ model_path = (
     if garch_model == "hn"
     else "trained_model_dataset_duan_with_dlayer.pth"
 )
-asset_prices_path = f"{folder}/asset_prices.csv"
-options_data_path = f"{folder}/dataset.csv"
-garch_params_path = f"{folder}/garch_parameters.csv"
-garch_params = pd.read_csv(garch_params_path)
-true_params = np.array(
-    [
-        garch_params["alpha"].iloc[0],
-        garch_params["beta"].iloc[0],
-        garch_params["omega"].iloc[0],
-        garch_params["gamma"].iloc[0],
-        garch_params["lambda"].iloc[0],
-    ]
-)
+
+true_params = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
 
 
 def load_data(assets, options_data):
@@ -124,16 +106,11 @@ def load_model(path, device):
     return model
 
 
-LR, _, R_DATA = load_data(asset_prices_path, options_data_path)
+def initial_ll(params, log_returns, r):
+    return -returns_loss(params, log_returns, r)
 
 
-def initial_ll(params):
-    return -returns_loss(params)
-
-
-def returns_loss(params, log_returns=LR, r=None):
-    if r is None:
-        r = R_DATA
+def returns_loss(params, log_returns, r):
     alpha, beta, omega, gamma, lambda_, _ = params
     size = len(log_returns)
     log_returns = torch.tensor(log_returns)
@@ -167,7 +144,7 @@ def returns_loss(params, log_returns=LR, r=None):
     return -0.5 * torch.sum(torch.log(h) + ((log_returns - (r + lambda_ * h)) ** 2) / h)
 
 
-def initial_guess(log_returns):
+def initial_guess(log_returns, r):
     variance = float(np.var(log_returns))
     if not np.isfinite(variance) or variance <= 0.0:
         variance = 1.0
@@ -190,32 +167,13 @@ def initial_guess(log_returns):
         ]
     )
 
-    # try to calibrate initial also using differential evolution
-
     result = minimize(
-        initial_ll,
+        lambda p: initial_ll(p, log_returns, r),
         initial_params,
         bounds=bounds,
         method="SLSQP",
         constraints=(nlc,),
     )
-
-    # result = differential_evolution(
-    #     initial_ll,
-    #     bounds=bounds,
-    #     strategy="best1bin",
-    #     maxiter=50,
-    #     popsize=10,
-    #     tol=1e-2,
-    #     mutation=(0.5, 1),
-    #     recombination=0.8,
-    #     seed=42,
-    #     callback=None,
-    #     disp=True,
-    #     polish=False,
-    #     init="latinhypercube",
-    #     constraints=(nlc,),
-    # )
 
     params = result.x
     loss = result.fun
@@ -234,186 +192,12 @@ def initial_guess(log_returns):
     return params, [aic, bic, loss]
 
 
-hn_garch_model = load_model(model_path, device)
-
-
-# def calibration_HN_GARCH(
-#     assets,
-#     options_data,
-#     model=hn_garch_model,
-#     batch_size=2048,
-#     seed=None,
-#     strategy="best1bin",
-#     bounds=bounds,
-#     polish=False,
-# ):
-#     log_returns, options_df = load_data(assets, options_data)
-#     S0 = options_df["S0"].values
-#     m = options_df["m"].values
-#     r = options_df["r"].values
-#     T = options_df["T"].values
-#     corp = options_df["corp"].values
-#     V = options_df["V"].values
-#     sigma_obs = options_df["sigma"].values
-
-#     x0 = initial_guess(log_returns)
-#     if x0[3] == 0.0:
-#         x0[3] = 5.0
-#     elif x0[4] == 0.0:
-#         x0[4] = 0.2
-
-#     # Clip x0 to ensure it's strictly within bounds
-#     x0 = np.clip(x0, [b[0] for b in bounds], [b[1] for b in bounds])
-
-#     # x0 = np.array([1.33e-6, 0.8, 1e-6, 5.0, 0.2, 0.1])
-#     Y1_vals = []
-#     Y2_vals = []
-
-#     def objective_fn(
-#         x,
-#         lr=log_returns,
-#         S0=S0,
-#         m=m,
-#         r=r,
-#         T=T,
-#         corp=corp,
-#         V=V,
-#         sigma_obs=sigma_obs,
-#     ):
-#         x = np.clip(x, [b[0] for b in bounds], [b[1] for b in bounds])
-#         # sigma_eps = 1e-6
-#         alpha, beta, omega, gamma, lambda_, sigma_eps = x
-#         eps = 1e-8
-
-#         df = pd.DataFrame(
-#             {
-#                 "S0": S0,
-#                 "m": m,
-#                 "r": r,
-#                 "T": T,
-#                 "callput": corp,
-#                 "alpha": alpha,
-#                 "beta": beta,
-#                 "omega": omega,
-#                 "gamma": gamma,
-#                 "lambda": lambda_,
-#                 "sigma": sigma_obs,
-#                  "V": V,
-#             }
-#         )
-
-#         dataset == SimDataset(df)
-#         # sampler = RandomSampler(dataset)
-#         data_loader = DataLoader(
-#             dataset,
-#             batch_size=batch_size,
-#             # sampler=sampler,
-#             shuffle=False,
-#             pin_memory=True,
-#         )
-
-#         criterion = nn.HuberLoss().to(device)
-#         sigma_model = []
-#         with torch.no_grad():
-#             for X, _ in data_loader:
-#                 X = X.to(device)
-#                 output = model(X)
-#                 sigma_model.extend(output.cpu().numpy().flatten())
-
-#         sigma_model = np.array(sigma_model)
-#         lr_size = len(lr)
-#         lr = torch.tensor(lr)
-#         h = torch.zeros(lr_size)
-#         # h[0] = torch.var(lr)
-#         h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
-#         r = torch.tensor(0.05 / 252.0)
-
-#         for i in range(lr_size - 1):
-#             h[i + 1] = (
-#                 omega
-#                 + beta * h[i]
-#                 + alpha
-#                 * (
-#                     (lr[i] - r - lambda_ * h[i]) / torch.sqrt(h[i])
-#                     - gamma * torch.sqrt(h[i])
-#                 )
-#                 ** 2
-#             )
-
-#         Y1 = -0.5 * torch.sum(torch.log(h) + ((lr - (r + lambda_ * h)) ** 2) / h)
-#         # print(f"Y1: {Y1}")
-#         Y1_vals.append(Y1)
-
-#         sigma_eps = torch.tensor(sigma_eps)
-#         # sigma_obs = sigma_obs
-#         # sigma_model = sigma_model.view(-1)
-
-#         Y2 = -0.5 * torch.sum(
-#             2 * torch.log(sigma_eps) + ((sigma_obs - sigma_model) / sigma_eps) ** 2
-#         )
-#         # Y2 = -torch.mean((torch.tensor(sigma_obs - sigma_model) / torch.tensor(sigma_obs)) ** 2)
-#         # Y2 = -0.5 * torch.mean(
-#         #     torch.tensor(((sigma_obs - sigma_model) / sigma_obs)) ** 2
-#         # )
-#         # Y2 = torch.nn.HuberLoss()(torch.tensor(sigma_obs), torch.tensor(sigma_model).view(-1))
-#         Y2_vals.append(Y2)
-
-#         # print(f"Y2: {Y2}")
-
-#         N = lr_size
-#         M = len(sigma_obs)
-
-#         joint = ((N + M) / (2 * N)) * Y1 + ((N + M) / (2 * M)) * Y2
-#         return -joint
-
-#     # init_pop = np.random.rand(15, 5)
-#     # for i in range(15):
-#     #     for j in range(5):
-#     #         init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (bounds[j][1] - bounds[j][0])
-#     # init_pop[0] = x0
-#     kwargs = dict(
-#         args=(),
-#         strategy=strategy,
-#         maxiter=200,
-#         popsize=15,
-#         tol=1e-2,
-#         mutation=(0.5, 1),
-#         recombination=0.8,
-#         seed=seed,
-#         callback=None,
-#         disp=True,
-#         polish=polish,
-#         constraints=(nlc,),
-#         # init="array",
-#     )
-#     if not polish:
-#         # Create initial population with x0 as first member
-#         init_pop = np.random.rand(15, len(bounds))
-#         for i in range(15):
-#             for j in range(len(bounds)):
-#                 init_pop[i, j] = bounds[j][0] + init_pop[i, j] * (
-#                     bounds[j][1] - bounds[j][0]
-#                 )
-#         init_pop[0] = x0
-#         kwargs["init"] = init_pop
-#     else:
-#         kwargs["x0"] = x0
-#     t0 = time.time()
-#     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
-#     t1 = time.time()
-
-
-#     case_time = t1 - t0
-#     x = np.array(result.x)
-#     alpha, beta, omega, gamma, lambda_, sigma_eps = result.x
-#     alpha_true, beta_true, omega_true, gamma_true, lambda_true = true_params
 def calibration_HN_GARCH(
     assets,
     options_data,
-    model=hn_garch_model,
+    model,
     batch_size=2048,
     seed=4234532,
-    # seed=1111111111,
     strategy="best1bin",
     bounds=bounds,
     polish=False,
@@ -427,19 +211,12 @@ def calibration_HN_GARCH(
     V = options_df["V"].values
     sigma_obs = options_df["sigma"].values
 
-    x0, crit = initial_guess(log_returns)
-    # if x0[3] == 0.0:
-    #     x0[3] = 5.0
-    # elif x0[4] == 0.0:
-    #     x0[4] = 0.2
-
-    # Clip x0 to ensure it's strictly within bounds
+    x0, crit = initial_guess(log_returns, r_scalar)
     x0 = np.clip(x0, [b[0] for b in bounds], [b[1] for b in bounds])
 
     Y1_vals = []
     Y2_vals = []
 
-    # Pre-calculate constant base features and move to target device
     base_vals = np.column_stack([S0, m, r, T, corp]).astype(np.float64)
     base_tensors = torch.tensor(base_vals, dtype=torch.float64, device=device)
 
@@ -451,32 +228,19 @@ def calibration_HN_GARCH(
 
     N_obs = len(sigma_obs_tensor)
 
-    def objective_fn(
-        x,
-        lr=log_returns,
-        S0=S0,
-        m=m,
-        r=r,
-        T=T,
-        corp=corp,
-        V=V,
-        sigma_obs=sigma_obs,
-    ):
+    def objective_fn(x):
         x = np.clip(x, [b[0] for b in bounds], [b[1] for b in bounds])
         alpha, beta, omega, gamma, lambda_, sigma_eps = x
         eps = 1e-8
 
-        # 1. Dynamic Features
         dyn_vals = torch.tensor(
             [alpha, beta, omega, gamma, lambda_], dtype=torch.float64, device=device
         )
         dyn_tensors = dyn_vals.expand(N_obs, 5)
 
-        # 2. Log Features
         log_vals = torch.log(dyn_vals + eps)
         log_tensors = log_vals.expand(N_obs, 5)
 
-        # 3. Concatenate all features (Shape: N x 15)
         X = torch.cat([base_tensors, dyn_tensors, log_tensors], dim=1)
 
         sigma_model = []
@@ -493,7 +257,6 @@ def calibration_HN_GARCH(
             h[0] = (omega + alpha) / (1.0 - beta - alpha * gamma**2)
         else:
             h[0] = omega / (1 - alpha - beta)
-        # h[0] = torch.var(lr_tensor)
 
         for i in range(lr_size - 1):
             if garch_model == "hn":
@@ -539,7 +302,6 @@ def calibration_HN_GARCH(
                 + ((sigma_obs_tensor - sigma_model_tensor) / sigma_eps_t) ** 2
             )
         )
-
         Y2_vals.append(Y2.item())
 
         if garch_model == "hn":
@@ -550,21 +312,6 @@ def calibration_HN_GARCH(
             joint = Y1 + Y2
         return -joint.item()
 
-    # kwargs = dict(
-    #     args=(),
-    #     strategy=strategy,
-    #     maxiter=200,
-    #     popsize=15,
-    #     tol=1e-2,
-    #     mutation=(0.5, 1),
-    #     recombination=0.8,
-    #     seed=seed,
-    #     callback=None,
-    #     disp=True,
-    #     polish=polish,
-    #     constraints=(nlc,),
-    # )
-    #
     popsize_multiplier = 20
     kwargs = dict(
         args=(),
@@ -579,11 +326,9 @@ def calibration_HN_GARCH(
         disp=True,
         polish=polish,
         constraints=(nlc,),
-        # init="latinhypercube",
     )
 
     if not polish:
-        # Create initial population dynamically sized based on popsize multiplier
         pop_size_total = popsize_multiplier * len(bounds)
         init_pop = np.random.rand(pop_size_total, len(bounds))
         for i in range(pop_size_total):
@@ -598,14 +343,6 @@ def calibration_HN_GARCH(
 
     t0 = time.time()
     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
-    # result = minimize(
-    #     objective_fn,
-    #     result.x,
-    #     method="Nelder-Mead",
-    #     bounds=bounds,
-    #     tol=1e-2,
-    #     constraints=(nlc,),
-    # )
     t1 = time.time()
 
     case_time = t1 - t0
@@ -614,62 +351,28 @@ def calibration_HN_GARCH(
     alpha_true, beta_true, omega_true, gamma_true, lambda_true = true_params
     eps = 1e-8
     print(f"Calibration Time: {case_time:.2f} seconds")
-    print(f"Alpha Calibrated: {alpha} | Alpha True: {alpha_true}")
-    print(
-        f"Alpha Error: {alpha - alpha_true} | Perc Error: {(alpha - alpha_true) / (alpha_true + eps) * 100:.2f}%"
-    )
-
-    print(f"Beta Calibrated: {beta} | Beta True: {beta_true}")
-    print(
-        f"Beta Error: {beta - beta_true} | Perc Error: {(beta - beta_true) / (beta_true + eps) * 100:.2f}%"
-    )
-
-    print(f"Omega Calibrated: {omega} | Omega True: {omega_true}")
-    print(
-        f"Omega Error: {omega - omega_true} | Perc Error: {(omega - omega_true) / (omega_true + eps) * 100:.2f}%"
-    )
-
-    print(f"Gamma Calibrated: {gamma} | Gamma True: {gamma_true}")
-    print(
-        f"Gamma Error: {gamma - gamma_true} | Perc Error: {(gamma - gamma_true) / (gamma_true + eps) * 100:.2f}%"
-    )
-
-    print(f"Lambda Calibrated: {lambda_} | Lambda True: {lambda_true}")
-    print(
-        f"Lambda Error: {lambda_ - lambda_true} | Perc Error: {(lambda_ - lambda_true) / (lambda_true + eps) * 100:.2f}%"
-    )
-
-    print(f"Sigma_Eps: {sigma_eps}")
-
     print(f"Two Norm Error: {np.linalg.norm(x[:5] - true_params, ord=2)}")
     print(f"Average Y1: {np.mean(np.array(Y1_vals))}")
     print(f"Average Y2: {np.mean(np.array(Y2_vals))}")
-    print(
-        f"Stationarity Check (beta + alpha * gamma^2): {beta + alpha * gamma**2} | True: {beta_true + alpha_true * gamma_true**2} | Init Check: {x0[1] + x0[0] * x0[3] ** 2}"
-    )
 
     k = 5
     loss = result.fun
-    n = len(options_data)
+    n = len(options_df)
     aic = 2 * k - 2 * np.log(loss)
     bic = k * np.log(n) - 2 * np.log(loss)
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
     print(f"Loss: {loss}")
-    # Save Results into JSON File
-    results = {
+
+    return {
         "strategy": strategy,
         "alpha": alpha,
         "beta": beta,
         "omega": omega,
         "gamma": gamma,
         "lambda": lambda_,
-        "alpha_true": alpha_true,
-        "beta_true": beta_true,
-        "omega_true": omega_true,
-        "gamma_true": gamma_true,
-        "lambda_true": lambda_true,
+        "sigma_eps": sigma_eps,
         "alpha_init": x0[0],
         "beta_init": x0[1],
         "omega_init": x0[2],
@@ -682,22 +385,59 @@ def calibration_HN_GARCH(
         "bic_init": crit[1],
         "loss": loss,
         "loss_init": crit[2],
+        "calibration_time_sec": case_time,
+        "n_options": n,
+        "n_returns": lr_size,
     }
-    with open(f"strats/results_{strategy}_{folder}.json", "w") as f:
-        json.dump(results, f)
+
+
+def find_ticker_periods(src2_root):
+    tickers = sorted(
+        d for d in os.listdir(src2_root)
+        if os.path.isdir(os.path.join(src2_root, d))
+    )
+    for ticker in tickers:
+        ticker_dir = os.path.join(src2_root, ticker)
+        periods = sorted(
+            d for d in os.listdir(ticker_dir)
+            if os.path.isdir(os.path.join(ticker_dir, d))
+        )
+        for period in periods:
+            yield ticker, period, os.path.join(ticker_dir, period)
+
+
+def main():
+    os.makedirs(REPORT_DIR, exist_ok=True)
+    model = load_model(model_path, device)
+
+    rows = []
+    for ticker, period, period_dir in find_ticker_periods(SRC2_ROOT):
+        assets_path = os.path.join(period_dir, "asset_prices.csv")
+        options_path = os.path.join(period_dir, "dataset.csv")
+
+        print(f"\n=== Calibrating {ticker}/{period} ===")
+        row = {"ticker": ticker, "period": period}
+        try:
+            result = calibration_HN_GARCH(
+                assets_path,
+                options_path,
+                model=model,
+                strategy=strategy,
+            )
+            row.update(result)
+            row["status"] = "ok"
+        except Exception as e:
+            row["status"] = "failed"
+            row["error"] = str(e)
+            print(f"FAILED {ticker}/{period}: {e}")
+
+        rows.append(row)
+
+    report_df = pd.DataFrame(rows)
+    csv_path = os.path.join(REPORT_DIR, f"calibration_report_{garch_model}.csv")
+    report_df.to_csv(csv_path, index=False)
+    print(f"\nWrote combined report to {csv_path}")
 
 
 if __name__ == "__main__":
-
-    calibration_HN_GARCH(
-        asset_prices_path,
-        options_data_path,
-        strategy=strategy,
-    )
-
-    from mc_duan import run_moment_analysis
-
-    mt, re = run_moment_analysis(
-        json_path=f"strats/results_best1bin_{folder}.json",
-        plot_prefix=f"Figs/{folder}_best1bin",
-    )
+    main()

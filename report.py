@@ -13,7 +13,7 @@ from torch_optimizer import Lookahead
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "Duan2_100K/dataset_duan.csv"
+dataset = "HN2_50K/dataset_hn.csv"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
