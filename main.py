@@ -12,7 +12,7 @@ from torch_optimizer import Lookahead
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "Duan2_50K/dataset_duan.csv"
+dataset = "HN2_50K/dataset_hn.csv"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
@@ -20,7 +20,7 @@ device = torch.device(
     if torch.backends.mps.is_available()
     else "cpu"
 )
-dlayer = False
+dlayer = True
 
 
 class SimDataset(Dataset):
@@ -281,10 +281,10 @@ def main():
     )
 
     # save the trained model
-    # torch.save(
-    #     trained_model.state_dict(),
-    #     f"trained_model_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.pth",
-    # )
+    torch.save(
+        trained_model.state_dict(),
+        f"trained_model_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.pth",
+    )
     print("\n" + "=" * 60)
     print("Final Model Evaluation")
     print("=" * 60)

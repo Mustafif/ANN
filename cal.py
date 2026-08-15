@@ -29,7 +29,7 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "OEX"
+folder = "src2/BSX/Period1"
 garch_model = "duan"
 
 # bounds = [

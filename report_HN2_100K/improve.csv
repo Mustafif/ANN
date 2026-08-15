@@ -1,4 +1,4 @@
 ,In-Sample,Out-of-Sample
-w. D-Layer,6.412933e-07,6.906116e-07
-w/o D-Layer,6.343848e-07,6.832166e-07
-Improvement Ratio,1.0109,1.0108
+w. D-Layer,5.080791e-07,5.495184e-07
+w/o D-Layer,6.148141e-07,6.603503e-07
+Improvement Ratio,0.1736,0.1678

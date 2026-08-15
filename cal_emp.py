@@ -67,7 +67,7 @@ device = torch.device(
 )
 
 model_path = (
-    "trained_model_HN_100K_with_dlayer.pth"
+    "trained_model_dataset_hn_with_out_dlayer.pth"
     if garch_model == "hn"
     else "trained_model_dataset_duan_with_dlayer.pth"
 )
@@ -227,7 +227,7 @@ def calibration_HN_GARCH(
     r_val = torch.tensor(r_scalar, dtype=torch.float64, device=device)
 
     N_obs = len(sigma_obs_tensor)
-
+    last_sigma_model = []
     def objective_fn(x):
         x = np.clip(x, [b[0] for b in bounds], [b[1] for b in bounds])
         alpha, beta, omega, gamma, lambda_, sigma_eps = x
@@ -251,6 +251,8 @@ def calibration_HN_GARCH(
                 sigma_model.append(output)
 
         sigma_model_tensor = torch.cat(sigma_model).flatten()
+        last_sigma_model.clear()
+        last_sigma_model.append(sigma_model_tensor.detach())
 
         h = torch.zeros(lr_size, dtype=torch.float64, device=device)
         if garch_model == "hn":
@@ -345,6 +347,13 @@ def calibration_HN_GARCH(
     result = differential_evolution(objective_fn, bounds=bounds, **kwargs)
     t1 = time.time()
 
+    objective_fn(result.x)  # one extra forward pass to refresh sigma_model_tensor at the winning params
+    sigma_model_final = last_sigma_model[0]
+    mean_iv_mse = torch.mean((sigma_obs_tensor - sigma_model_final) ** 2).item()
+    mean_iv_mae = torch.mean(torch.abs(sigma_obs_tensor - sigma_model_final)).item()
+    print(f"Mean IV MSE: {mean_iv_mse}, Mean IV MAE: {mean_iv_mae}")
+
+
     case_time = t1 - t0
     x = np.array(result.x)
     alpha, beta, omega, gamma, lambda_, sigma_eps = result.x
@@ -388,6 +397,8 @@ def calibration_HN_GARCH(
         "calibration_time_sec": case_time,
         "n_options": n,
         "n_returns": lr_size,
+        "mean_iv_mse": mean_iv_mse,
+        "mean_iv_mae": mean_iv_mae,
     }
 
 

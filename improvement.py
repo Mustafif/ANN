@@ -5,8 +5,8 @@ def improvement(folder):
     df.to_latex(f"{folder}/report.tex", index=False)
     output_path = f"{folder}/improve.csv"
     ml = df["Mean Loss"]
-    in_sample = ml[2] / ml[0]
-    out_sample = ml[3] / ml[1]
+    in_sample = 1 - (ml[2] / ml[0])
+    out_sample = 1 - (ml[3] / ml[1])
 
     result = {
         "": ["w. D-Layer", "w/o D-Layer", "Improvement Ratio"],
