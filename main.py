@@ -12,7 +12,7 @@ from torch_optimizer import Lookahead
 from ann import ForwardModel
 
 module = ForwardModel
-dataset = "HN2_50K/dataset_hn.csv"
+dataset = "HN2_100K/dataset_hn.csv"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
@@ -197,7 +197,7 @@ def main():
     lr = 0.001
     weight_decay = 1e-6
     batch_size = 32
-    epochs = 100
+    epochs = 1000
     dropout_rate = 0.0
 
     # Option 2: Train final model with train/val split
