@@ -29,9 +29,9 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-SRC2_ROOT = "src2"
-REPORT_DIR = "strats"
-garch_model = "duan"
+SRC2_ROOT = "src3"
+REPORT_DIR = "strats2"
+garch_model = "hn"
 
 if garch_model == "hn":
     bounds = [
@@ -67,7 +67,7 @@ device = torch.device(
 )
 
 model_path = (
-    "trained_model_dataset_hn_with_out_dlayer.pth"
+    "trained_model_dataset_hn_with_dlayer.pth"
     if garch_model == "hn"
     else "trained_model_dataset_duan_with_dlayer.pth"
 )
@@ -81,6 +81,7 @@ def load_data(assets, options_data):
     log_returns = np.log(prices[1:] / prices[:-1])
 
     options_df = pd.read_csv(options_data)
+    options_df = options_df[options_df["sigma"] >= 0].reset_index(drop=True)
 
     if "r" in options_df.columns and len(options_df) > 0:
         r_vals = options_df["r"].values
@@ -222,6 +223,15 @@ def calibration_HN_GARCH(
 
     sigma_obs_tensor = torch.tensor(sigma_obs, dtype=torch.float64, device=device)
 
+    # Debug: Print input feature ranges
+    print(f"\nDEBUG INPUT RANGES:")
+    print(f"S0: Min={np.min(S0):.2f}, Max={np.max(S0):.2f}, Mean={np.mean(S0):.2f}")
+    print(f"m: Min={np.min(m):.2f}, Max={np.max(m):.2f}, Mean={np.mean(m):.2f}")
+    print(f"r: Min={np.min(r):.6f}, Max={np.max(r):.6f}, Mean={np.mean(r):.6f}")
+    print(f"T: Min={np.min(T):.2f}, Max={np.max(T):.2f}, Mean={np.mean(T):.2f}")
+    print(f"corp: Min={np.min(corp):.2f}, Max={np.max(corp):.2f}, Mean={np.mean(corp):.2f}")
+    print(f"sigma_obs: Min={np.min(sigma_obs):.6f}, Max={np.max(sigma_obs):.6f}, Mean={np.mean(sigma_obs):.6f}")
+
     lr_size = len(log_returns)
     lr_tensor = torch.tensor(log_returns, dtype=torch.float64, device=device)
     r_val = torch.tensor(r_scalar, dtype=torch.float64, device=device)
@@ -251,6 +261,10 @@ def calibration_HN_GARCH(
                 sigma_model.append(output)
 
         sigma_model_tensor = torch.cat(sigma_model).flatten()
+
+        # Debug: Print model output range during optimization
+        # if len(Y2_vals) % 10 == 0:  # Print every 10 iterations to avoid spam
+        #     print(f"  [Iter {len(Y2_vals)}] sigma_model range: Min={sigma_model_tensor.min().item():.6f}, Max={sigma_model_tensor.max().item():.6f}, Mean={sigma_model_tensor.mean().item():.6f}")
         last_sigma_model.clear()
         last_sigma_model.append(sigma_model_tensor.detach())
 
@@ -349,6 +363,12 @@ def calibration_HN_GARCH(
 
     objective_fn(result.x)  # one extra forward pass to refresh sigma_model_tensor at the winning params
     sigma_model_final = last_sigma_model[0]
+
+    # Debug: Print ranges of observed and predicted IVs
+    print(f"\nDEBUG IV RANGES:")
+    print(f"sigma_obs_tensor - Min: {sigma_obs_tensor.min().item():.6f}, Max: {sigma_obs_tensor.max().item():.6f}, Mean: {sigma_obs_tensor.mean().item():.6f}")
+    print(f"sigma_model_final - Min: {sigma_model_final.min().item():.6f}, Max: {sigma_model_final.max().item():.6f}, Mean: {sigma_model_final.mean().item():.6f}")
+
     mean_iv_mse = torch.mean((sigma_obs_tensor - sigma_model_final) ** 2).item()
     mean_iv_mae = torch.mean(torch.abs(sigma_obs_tensor - sigma_model_final)).item()
     print(f"Mean IV MSE: {mean_iv_mse}, Mean IV MAE: {mean_iv_mae}")
@@ -421,7 +441,8 @@ def main():
     os.makedirs(REPORT_DIR, exist_ok=True)
     model = load_model(model_path, device)
 
-    rows = []
+    csv_path = os.path.join(REPORT_DIR, f"calibration_report_{garch_model}.csv")
+
     for ticker, period, period_dir in find_ticker_periods(SRC2_ROOT):
         assets_path = os.path.join(period_dir, "asset_prices.csv")
         options_path = os.path.join(period_dir, "dataset.csv")
@@ -442,11 +463,13 @@ def main():
             row["error"] = str(e)
             print(f"FAILED {ticker}/{period}: {e}")
 
-        rows.append(row)
+        row_df = pd.DataFrame([row])
+        row_df.to_csv(
+            os.path.join(REPORT_DIR, f"{ticker}_{period}_{garch_model}.csv"),
+            index=False,
+        )
+        row_df.to_csv(csv_path, mode="a", header=not os.path.exists(csv_path), index=False)
 
-    report_df = pd.DataFrame(rows)
-    csv_path = os.path.join(REPORT_DIR, f"calibration_report_{garch_model}.csv")
-    report_df.to_csv(csv_path, index=False)
     print(f"\nWrote combined report to {csv_path}")
 
 
