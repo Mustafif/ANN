@@ -173,7 +173,7 @@ def initial_guess(log_returns, r):
         initial_params,
         bounds=bounds,
         method="SLSQP",
-        constraints=(nlc,),
+        # constraints=(nlc,),
     )
 
     params = result.x
@@ -443,7 +443,16 @@ def main():
 
     csv_path = os.path.join(REPORT_DIR, f"calibration_report_{garch_model}.csv")
 
+    done = set()
+    if os.path.exists(csv_path):
+        prev = pd.read_csv(csv_path)
+        done = set(zip(prev["ticker"], prev["period"]))
+
     for ticker, period, period_dir in find_ticker_periods(SRC2_ROOT):
+        if (ticker, period) in done:
+            print(f"Skipping {ticker}/{period}, already completed")
+            continue
+
         assets_path = os.path.join(period_dir, "asset_prices.csv")
         options_path = os.path.join(period_dir, "dataset.csv")
 
@@ -469,9 +478,9 @@ def main():
             index=False,
         )
         row_df.to_csv(csv_path, mode="a", header=not os.path.exists(csv_path), index=False)
+        done.add((ticker, period))
 
     print(f"\nWrote combined report to {csv_path}")
-
 
 if __name__ == "__main__":
     main()
