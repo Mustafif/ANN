@@ -108,7 +108,7 @@ def load_model(path, device):
 
 
 def initial_ll(params, log_returns, r):
-    return -returns_loss(params, log_returns, r)
+    return returns_loss(params, log_returns, r)
 
 
 def returns_loss(params, log_returns, r):
@@ -184,8 +184,8 @@ def initial_guess(log_returns, r):
     print(f"Loss: {loss}")
     k = len(params)
     n = len(log_returns)
-    aic = 2 * k + 2 * loss
-    bic = k * np.log(n) + 2 * loss
+    aic = 2 * k - 2 * np.log(loss)
+    bic = k * np.log(n) - 2 * np.log(loss)
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
@@ -326,7 +326,7 @@ def calibration_HN_GARCH(
             ) * Y2
         else:
             joint = Y1 + Y2
-        return -joint.item()
+        return joint.item()
 
     popsize_multiplier = 20
     kwargs = dict(
