@@ -184,8 +184,8 @@ def initial_guess(log_returns, r):
     print(f"Loss: {loss}")
     k = len(params)
     n = len(log_returns)
-    aic = 2 * k - 2 * loss
-    bic = k * np.log(n) - 2 * loss
+    aic = 2 * k + 2 * loss
+    bic = k * np.log(n) + 2 * loss
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
