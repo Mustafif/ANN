@@ -108,7 +108,7 @@ def load_model(path, device):
 
 
 def initial_ll(params, log_returns, r):
-    return returns_loss(params, log_returns, r)
+    return -returns_loss(params, log_returns, r)
 
 
 def returns_loss(params, log_returns, r):
@@ -177,7 +177,7 @@ def initial_guess(log_returns, r):
     )
 
     params = result.x
-    loss = result.fun
+    loss = -result.fun
     print("Initial Two-norm error:")
     print(np.linalg.norm(true_params - params[:5], ord=2))
     print(f"Initial Params: {params}")
@@ -326,7 +326,7 @@ def calibration_HN_GARCH(
             ) * Y2
         else:
             joint = Y1 + Y2
-        return joint.item()
+        return -joint.item()
 
     popsize_multiplier = 20
     kwargs = dict(
@@ -385,10 +385,10 @@ def calibration_HN_GARCH(
     print(f"Average Y2: {np.mean(np.array(Y2_vals))}")
 
     k = 5
-    loss = result.fun
+    loss = -result.fun
     n = len(options_df)
-    aic = 2 * k - 2 * loss
-    bic = k * np.log(n) - 2 * loss
+    aic = 2 * k - 2 * np.log(loss)
+    bic = k * np.log(n) - 2 * np.log(loss)
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
