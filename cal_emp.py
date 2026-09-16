@@ -173,7 +173,7 @@ def initial_guess(log_returns, r):
         initial_params,
         bounds=bounds,
         method="SLSQP",
-        # constraints=(nlc,),
+        constraints=(nlc,),
     )
 
     params = result.x
