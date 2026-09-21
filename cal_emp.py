@@ -29,9 +29,9 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-SRC2_ROOT = "src3"
-REPORT_DIR = "strats2"
-garch_model = "hn"
+SRC2_ROOT = "src4"
+REPORT_DIR = "jpm_stats"
+garch_model = "duan"
 
 if garch_model == "hn":
     bounds = [
@@ -184,8 +184,8 @@ def initial_guess(log_returns, r):
     print(f"Loss: {loss}")
     k = len(params)
     n = len(log_returns)
-    aic = 2 * k - 2 * np.log(loss)
-    bic = k * np.log(n) - 2 * np.log(loss)
+    aic = 2 * k - 2 * np.log(np.abs(loss))
+    bic = k * np.log(n) - 2 * np.log(np.abs(loss))
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
@@ -387,8 +387,8 @@ def calibration_HN_GARCH(
     k = 5
     loss = -result.fun
     n = len(options_df)
-    aic = 2 * k - 2 * np.log(loss)
-    bic = k * np.log(n) - 2 * np.log(loss)
+    aic = 2 * k - 2 * np.log(np.abs(loss))
+    bic = k * np.log(n) - 2 * np.log(np.abs(loss))
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
