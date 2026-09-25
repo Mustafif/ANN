@@ -46,14 +46,14 @@ if garch_model == "hn":
     scale2 = 0.05
 else:
     bounds = [
-        (1e-6, 1.50e-6),  # alpha
+        (1e-7, 1.50e-6),  # alpha
         (0.5, 0.99),  # beta
         (1e-8, 1e-5),  # omega
         (0.25, 0.5),  # gamma
         (0.3, 0.6),  # lambda
         (1e-2, 3e-1),  # sigma epsilon
     ]
-    scale = 1
+    scale = 20
     scale2 = 1
 
 strategy = "best1bin"
@@ -117,6 +117,7 @@ def returns_loss(params, log_returns, r):
     log_returns = torch.tensor(log_returns)
     h = torch.zeros(size)
     h[0] = torch.var(log_returns)
+    # print(f"h0 = {h[0]}")
 
     for i in range(size - 1):
         if garch_model == "hn":
@@ -141,7 +142,8 @@ def returns_loss(params, log_returns, r):
                     ** 2
                 )
             )
-
+        # print(f"h[i+1] = {h[i+1]}")
+    # print(f"other thing = {((log_returns - (r + lambda_ * h)) ** 2) / h}")
     return -0.5 * torch.sum(torch.log(h) + ((log_returns - (r + lambda_ * h)) ** 2) / h)
 
 
@@ -184,8 +186,8 @@ def initial_guess(log_returns, r):
     print(f"Loss: {loss}")
     k = len(params)
     n = len(log_returns)
-    aic = 2 * k - 2 * np.log(np.abs(loss))
-    bic = k * np.log(n) - 2 * np.log(np.abs(loss))
+    aic = 2 * k - 2 * loss
+    bic = k * np.log(n) - 2 * loss
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
@@ -300,6 +302,8 @@ def calibration_HN_GARCH(
                         ** 2
                     )
                 )
+        # print(f"Log(h) = {torch.log(h)}")
+        # print(f"other thing = {((lr_tensor - (r_val + lambda_ * h)) ** 2) / h}")
 
         Y1 = (
             -0.5
@@ -364,6 +368,11 @@ def calibration_HN_GARCH(
     objective_fn(result.x)  # one extra forward pass to refresh sigma_model_tensor at the winning params
     sigma_model_final = last_sigma_model[0]
 
+    init_loss = -objective_fn(x0)
+    sigma_model_init = last_sigma_model[0]
+    mean_iv_mse_init = torch.mean((sigma_obs_tensor - sigma_model_init) ** 2).item()
+    mean_iv_mae_init = torch.mean(torch.abs(sigma_obs_tensor - sigma_model_init)).item()
+
     # Debug: Print ranges of observed and predicted IVs
     print(f"\nDEBUG IV RANGES:")
     print(f"sigma_obs_tensor - Min: {sigma_obs_tensor.min().item():.6f}, Max: {sigma_obs_tensor.max().item():.6f}, Mean: {sigma_obs_tensor.mean().item():.6f}")
@@ -387,8 +396,8 @@ def calibration_HN_GARCH(
     k = 5
     loss = -result.fun
     n = len(options_df)
-    aic = 2 * k - 2 * np.log(np.abs(loss))
-    bic = k * np.log(n) - 2 * np.log(np.abs(loss))
+    aic = 2 * k - 2 * loss
+    bic = k * np.log(n) - 2 * loss
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
@@ -410,8 +419,8 @@ def calibration_HN_GARCH(
         "two_norm_error": np.linalg.norm(x[:5] - true_params, ord=2),
         "aic": aic,
         "bic": bic,
-        "aic_init": crit[0],
-        "bic_init": crit[1],
+        "aic_init": 2*k - 2*init_loss,
+        "bic_init": k*np.log(n) - 2*init_loss,
         "loss": loss,
         "loss_init": crit[2],
         "calibration_time_sec": case_time,
@@ -419,6 +428,9 @@ def calibration_HN_GARCH(
         "n_returns": lr_size,
         "mean_iv_mse": mean_iv_mse,
         "mean_iv_mae": mean_iv_mae,
+        "joint_loss_init": init_loss,
+        "mean_iv_mse_init": mean_iv_mse_init,
+        "mean_iv_mae_init": mean_iv_mae_init,
     }
 
 
