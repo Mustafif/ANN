@@ -29,8 +29,8 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-folder = "src2/BSX/Period1"
-garch_model = "duan"
+folder = "src2_Health/BDX/Period1"
+garch_model = "hn"
 
 # bounds = [
 #     (1e-6, 1.50e-6),  # alpha
@@ -40,27 +40,44 @@ garch_model = "duan"
 #     (0.1, 1),  # lambda
 #     (1e-2, 1e-1),  # sigma epsilon
 # ]
+# if garch_model == "hn":
+#     bounds = [
+#         (1e-6, 1.50e-6),  # alpha
+#         (0.2, 0.99),  # beta
+#         (1e-7, 1e-6),  # omega
+#         (1, 7),  # gamma
+#         (0.1, 1),  # lambda
+#         (1e-3, 3e-1),  # sigma epsilon
+#     ]
+# else:
+#     bounds = [
+#         (1e-6, 1.50e-6),  # alpha
+#         (0.5, 0.99),  # beta
+#         (1e-8, 1e-5),  # omega
+#         (0.25, 0.5),  # gamma
+#         (0.3, 0.6),  # lambda
+#         (1e-2, 3e-1),  # sigma epsilon
+#     ]
 if garch_model == "hn":
     bounds = [
-        (1e-6, 1.50e-6),  # alpha
-        (0.2, 0.99),  # beta
-        (1e-7, 1e-6),  # omega
-        (1, 7),  # gamma
-        (0.1, 1),  # lambda
-        (1e-3, 3e-1),  # sigma epsilon
+        (1e-8, 1e-5),     # alpha
+        (0.5, 0.9999),    # beta
+        (1e-8, 1e-5),     # omega
+        (0.0, 15.0),      # gamma
+        (0.0, 1.0),       # lambda
+        (1e-3, 0.5),      # sigma epsilon
     ]
 else:
     bounds = [
-        (1e-6, 1.50e-6),  # alpha
-        (0.5, 0.99),  # beta
-        (1e-8, 1e-5),  # omega
-        (0.25, 0.5),  # gamma
-        (0.3, 0.6),  # lambda
-        (1e-2, 3e-1),  # sigma epsilon
+        (1e-8, 1e-5),     # alpha
+        (0.5, 0.9999),    # beta
+        (1e-8, 1e-4),     # omega
+        (0.0, 1.0),       # gamma
+        (0.0, 1.0),       # lambda
+        (1e-3, 0.5),      # sigma epsilon
     ]
-
-scale = 1
-scale2 = 1
+scale = 10
+scale2 = 2
 strategy = "best1bin"
 
 device = torch.device(
@@ -72,21 +89,21 @@ device = torch.device(
 )
 
 model_path = (
-    "trained_model_HN_100K_with_dlayer.pth"
+    "trained_model_dataset_hn_with_dlayer.pth"
     if garch_model == "hn"
     else "trained_model_dataset_duan_with_dlayer.pth"
 )
-asset_prices_path = f"{folder}/asset_prices_set_1.csv"
-options_data_path = f"{folder}/dataset_{garch_model}.csv"
-garch_params_path = f"{folder}/garch_parameters_{garch_model}.csv"
-garch_params = pd.read_csv(garch_params_path)
+asset_prices_path = f"{folder}/asset_prices.csv"
+options_data_path = f"{folder}/dataset.csv"
+# garch_params_path = f"{folder}/garch_parameters_{garch_model}.csv"
+# garch_params = pd.read_csv(garch_params_path)
 true_params = np.array(
     [
-        garch_params["alpha"].iloc[0],
-        garch_params["beta"].iloc[0],
-        garch_params["omega"].iloc[0],
-        garch_params["gamma"].iloc[0],
-        garch_params["lambda"].iloc[0],
+        0,
+        0,
+        0,
+        0,
+        0,
     ]
 )
 
@@ -216,15 +233,15 @@ def initial_guess(log_returns):
     # )
 
     params = result.x
-    loss = result.fun
+    loss = -result.fun
     print("Initial Two-norm error:")
     print(np.linalg.norm(true_params - params[:5], ord=2))
     print(f"Initial Params: {params}")
     print(f"Loss: {loss}")
     k = len(params)
     n = len(log_returns)
-    aic = 2 * k - 2 * np.log(loss)
-    bic = k * np.log(n) - 2 * np.log(loss)
+    aic = 2 * k - 2 * loss
+    bic = k * np.log(n) - 2 * loss
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")
@@ -645,10 +662,10 @@ def calibration_HN_GARCH(
     )
 
     k = 5
-    loss = result.fun
+    loss = -result.fun
     n = len(options_data)
-    aic = 2 * k - 2 * np.log(loss)
-    bic = k * np.log(n) - 2 * np.log(loss)
+    aic = 2 * k - 2 * loss
+    bic = k * np.log(n) - 2 * loss
 
     print(f"AIC: {aic}")
     print(f"BIC: {bic}")

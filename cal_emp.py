@@ -29,13 +29,13 @@ def stationarity_fn(x, *args):
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
-SRC2_ROOT = "src4"
-REPORT_DIR = "jpm_stats"
-garch_model = "duan"
+SRC2_ROOT = "src2_CD"
+REPORT_DIR = "CD_stats"
+garch_model = "hn"
 
 if garch_model == "hn":
     bounds = [
-        (1e-6, 1.50e-6),  # alpha
+        (1e-7, 1.50e-6),  # alpha
         (0.2, 0.99),  # beta
         (1e-7, 1e-6),  # omega
         (1, 7),  # gamma
