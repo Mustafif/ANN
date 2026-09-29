@@ -20,18 +20,23 @@ from ann import ForwardModel
 from main import SimDataset
 
 
+
+
+SRC2_ROOT = "src4"
+REPORT_DIR = "jpm_stats"
+garch_model = "hn"
+
 # Define the stationarity condition: beta + alpha * gamma^2
 def stationarity_fn(x, *args):
     alpha, beta, omega, gamma, lambda_, sigma_eps = x
-    return beta + alpha * (gamma**2)
+    if garch_model == "hn":
+        return beta + alpha * (gamma**2)
+    else:
+        return beta + alpha*(1+gamma**2)
 
 
 # Constraint: 0 < beta + alpha * gamma^2 < 0.999
 nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
-
-SRC2_ROOT = "src2_CD"
-REPORT_DIR = "CD_stats"
-garch_model = "hn"
 
 if garch_model == "hn":
     bounds = [
@@ -61,8 +66,8 @@ strategy = "best1bin"
 device = torch.device(
     "cuda"
     if torch.cuda.is_available()
-    else "mps:0"
-    if torch.backends.mps.is_available()
+    # else "mps:0"
+    # if torch.backends.mps.is_available()
     else "cpu"
 )
 
@@ -81,8 +86,12 @@ def load_data(assets, options_data):
     log_returns = np.log(prices[1:] / prices[:-1])
 
     options_df = pd.read_csv(options_data)
+    # sigma >=0 and <= 1
+    # moneyness >= 0.5 and <= 1.5
     options_df = options_df[options_df["sigma"] >= 0].reset_index(drop=True)
-
+    options_df = options_df[options_df["sigma"] <= 1].reset_index(drop=True)
+    options_df = options_df[options_df["m"] >= 0.5].reset_index(drop=True)
+    options_df = options_df[options_df["m"] <= 1.5].reset_index(drop=True)
     if "r" in options_df.columns and len(options_df) > 0:
         r_vals = options_df["r"].values
         if np.allclose(r_vals, r_vals[0]):
