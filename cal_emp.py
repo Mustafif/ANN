@@ -31,7 +31,7 @@ nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
 SRC2_ROOT = "src2_CD"
 REPORT_DIR = "CD_stats"
-garch_model = "hn"
+garch_model = "duan"
 
 if garch_model == "hn":
     bounds = [

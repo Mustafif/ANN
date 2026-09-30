@@ -1,0 +1,2 @@
+ticker,period,status,error
+HLT,Period3,failed,division by zero
