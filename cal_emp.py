@@ -19,8 +19,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from ann import ForwardModel
 from main import SimDataset
 
-SRC2_ROOT = "src4"
-REPORT_DIR = "jpm_stats"
+SRC2_ROOT = "src2_Finance"
+REPORT_DIR = "finance_stats"
 garch_model = "hn"
 
 # Define the stationarity condition: beta + alpha * gamma^2
@@ -37,19 +37,19 @@ nlc = NonlinearConstraint(stationarity_fn, 0.0, 0.999)
 
 if garch_model == "hn":
     bounds = [
-        (1e-7, 1.50e-6),  # alpha
-        (0.2, 0.99),  # beta
-        (1e-7, 1e-6),  # omega
-        (1, 7),  # gamma
-        (0.1, 1),  # lambda
-        (1e-3, 3e-1),  # sigma epsilon
+        (1e-8, 1e-5),  # alpha
+        (0.5, 0.99999),  # beta
+        (1e-8, 1e-5),  # omega
+        (0, 500),  # gamma
+        (0, 5),  # lambda
+        (1e-2, 0.5),  # sigma epsilon
     ]
-    scale = 10.0
-    scale2 = 0.05
+    scale = 10
+    scale2 = 1
 else:
     bounds = [
         (1e-7, 1.50e-6),  # alpha
-        (0.5, 0.99),  # beta
+        (0.5, 0.9999),  # beta
         (1e-8, 1e-5),  # omega
         (0.25, 0.5),  # gamma
         (0.3, 0.6),  # lambda
@@ -89,6 +89,7 @@ def load_data(assets, options_data):
     options_df = options_df[options_df["sigma"] <= 1].reset_index(drop=True)
     options_df = options_df[options_df["m"] >= 0.5].reset_index(drop=True)
     options_df = options_df[options_df["m"] <= 1.5].reset_index(drop=True)
+    options_df = options_df[options_df["V"] > 0.5].reset_index(drop=True)
     if "r" in options_df.columns and len(options_df) > 0:
         r_vals = options_df["r"].values
         if np.allclose(r_vals, r_vals[0]):
