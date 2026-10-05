@@ -1,0 +1,2 @@
+ticker,period,strategy,alpha,beta,omega,gamma,lambda,sigma_eps,alpha_init,beta_init,omega_init,gamma_init,lambda_init,two_norm_error,aic,bic,aic_init,bic_init,loss,loss_init,calibration_time_sec,n_options,n_returns,mean_iv_mse,mean_iv_mae,joint_loss_init,mean_iv_mse_init,mean_iv_mae_init,status
+BAC,Period1,best1bin,1e-05,0.894608749719216,9.223242254950115e-06,0.0,0.2999999999999998,0.1,1e-05,0.894608749719216,9.223242254950117e-06,0.0,0.3,0.9435702492444571,,,,,,,4275.600080251694,3944,307,,,,,,ok
