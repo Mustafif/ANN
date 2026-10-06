@@ -1,0 +1,2 @@
+ticker,period,status,error
+AVGO,Period3,failed,zero-size array to reduction operation minimum which has no identity
