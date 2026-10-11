@@ -19,8 +19,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from ann import ForwardModel
 from main import SimDataset
 
-SRC2_ROOT = "src2_IT"
-REPORT_DIR = "IT_stats"
+SRC2_ROOT = "src2_Finance"
+REPORT_DIR = "finance2_stats_filter"
 garch_model = "hn"
 
 # Define the stationarity condition: beta + alpha * gamma^2
@@ -380,6 +380,32 @@ def calibration_HN_GARCH(
     mean_iv_mse_init = torch.mean((sigma_obs_tensor - sigma_model_init) ** 2).item()
     mean_iv_mae_init = torch.mean(torch.abs(sigma_obs_tensor - sigma_model_init)).item()
 
+
+    M_BINS = [0, 0.8, 0.95, 1.05, 1.2, np.inf]
+    T_BINS = [0, 30, 90, 180, np.inf]  # adjust to the units of your T column
+    M_LABELS = ["<0.8", "0.8-0.95", "0.95-1.05", "1.05-1.2", "1.2+"]
+    T_LABELS = ["<30", "30-90", "90-180", "180+"]
+
+
+    def iv_mre_by_bucket(m, T, sigma_obs, sigma_model, prefix=""):
+        df = pd.DataFrame({"m": m, "T": T, "obs": sigma_obs, "mod": sigma_model})
+        df = df[df["obs"] > 0]
+        df["rel"] = (df["obs"] - df["mod"]).abs() / df["obs"]
+
+        out = {}
+        for col, bins, labels in [
+            ("T", T_BINS, T_LABELS),
+            ("m", M_BINS, M_LABELS),
+        ]:
+            bucket = pd.cut(df[col], bins, right=False, labels=labels)
+            g = df.groupby(bucket, observed=False)["rel"].agg(["mean", "size"])
+            for label, r in g.iterrows():
+                out[f"{prefix}mre_{col}{label}"] = r["mean"]
+                out[f"{prefix}n_{col}{label}"] = int(r["size"])
+        return out
+
+
+
     # Debug: Print ranges of observed and predicted IVs
     print(f"\nDEBUG IV RANGES:")
     print(f"sigma_obs_tensor - Min: {sigma_obs_tensor.min().item():.6f}, Max: {sigma_obs_tensor.max().item():.6f}, Mean: {sigma_obs_tensor.mean().item():.6f}")
@@ -438,6 +464,8 @@ def calibration_HN_GARCH(
         "joint_loss_init": init_loss,
         "mean_iv_mse_init": mean_iv_mse_init,
         "mean_iv_mae_init": mean_iv_mae_init,
+        **iv_mre_by_bucket(m, T, sigma_obs, sigma_model_final.cpu().numpy()),
+        **iv_mre_by_bucket(m, T, sigma_obs, sigma_model_init.cpu().numpy(), prefix="init_"),
     }
 
 
