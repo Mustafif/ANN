@@ -19,8 +19,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from ann import ForwardModel
 from main import SimDataset
 
-SRC2_ROOT = "src2_Finance"
-REPORT_DIR = "finance2_stats_filter"
+SRC2_ROOT = "src2_Health"
+REPORT_DIR = "health2_stats"
 garch_model = "hn"
 
 # Define the stationarity condition: beta + alpha * gamma^2
@@ -64,7 +64,7 @@ device = torch.device(
     "cuda"
     if torch.cuda.is_available()
     # else "mps:0"
-    # if torch.backends.mps.is_available()
+    # if torch.backends.mps.is_available()4
     else "cpu"
 )
 
@@ -78,28 +78,49 @@ true_params = np.array([0.0, 0.0, 0.0, 0.0, 0.0])
 
 
 def load_data(assets, options_data):
-    prices_df = pd.read_csv(assets)
-    prices = prices_df.values.flatten()
-    log_returns = np.log(prices[1:] / prices[:-1])
+    prices_df = pd.read_csv(assets, parse_dates=["date"])
+    prices_df = prices_df.sort_values("date").reset_index(drop=True)
 
-    options_df = pd.read_csv(options_data)
-    # sigma >=0 and <= 1
-    # moneyness >= 0.5 and <= 1.5
-    options_df = options_df[options_df["sigma"] >= 0].reset_index(drop=True)
-    options_df = options_df[options_df["sigma"] <= 1].reset_index(drop=True)
-    options_df = options_df[options_df["m"] >= 0.5].reset_index(drop=True)
-    options_df = options_df[options_df["m"] <= 1.5].reset_index(drop=True)
-    options_df = options_df[options_df["V"] > 0.5].reset_index(drop=True)
-    if "r" in options_df.columns and len(options_df) > 0:
-        r_vals = options_df["r"].values
-        if np.allclose(r_vals, r_vals[0]):
-            r_scalar = float(r_vals[0])
-        else:
-            r_scalar = float(np.mean(r_vals))
-    else:
-        r_scalar = 0.05 / 252.0
+    if prices_df["date"].isna().any():
+        raise ValueError("Asset prices contain invalid dates")
 
-    return log_returns, options_df, r_scalar
+    if prices_df["date"].duplicated().any():
+        raise ValueError("Asset prices contain duplicate dates")
+
+    prices = pd.to_numeric(
+        prices_df["S0"], errors="raise"
+    ).to_numpy(dtype=float)
+
+    if len(prices) < 2:
+        raise ValueError("At least two asset prices are required")
+
+    if not np.all(np.isfinite(prices) & (prices > 0)):
+        raise ValueError("Asset prices must be finite and positive")
+
+    log_returns = np.diff(np.log(prices))
+
+    options_df = pd.read_csv(options_data, parse_dates=["date"])
+
+    options_df["r"] = pd.to_numeric(
+        options_df["r"], errors="raise"
+    ).astype(float)
+
+    # Exclude option observations without a valid rate.
+    valid = np.isfinite(options_df["r"].to_numpy(dtype=float))
+
+    print(f"Dropping {(~valid).sum()} option rows with invalid rates")
+
+    options_df = options_df.loc[valid].reset_index(drop=True)
+
+    if options_df.empty:
+        raise ValueError("No option observations with valid rates")
+
+    # Annual rates aligned with option rows.
+    # Representative daily rate for the stock-return likelihood.
+    # Assumes stored r is an annual rate in decimal form.
+    r_daily = float(options_df["r"].mean()) / 252.0
+
+    return log_returns, options_df, r_daily
 
 
 def load_model(path, device):
@@ -311,12 +332,18 @@ def calibration_HN_GARCH(
                 )
         # print(f"Log(h) = {torch.log(h)}")
         # print(f"other thing = {((lr_tensor - (r_val + lambda_ * h)) ** 2) / h}")
-
-        Y1 = (
-            -0.5
-            * scale
-            * torch.sum(torch.log(h) + ((lr_tensor - (r_val + lambda_ * h)) ** 2) / h)
-        )
+        if garch_model == "hn":
+            Y1 = (
+                -0.5
+                * scale
+                * torch.sum(torch.log(h) + ((lr_tensor - (r_val + lambda_ * h)) ** 2) / h)
+            )
+        else:
+            Y1 = (
+                -0.5
+                * scale
+                * torch.sum(torch.log(h) + ((lr_tensor - (r_val + lambda_ * torch.sqrt(h) - 0.5*h)) ** 2) / h)
+            )
         Y1_vals.append(Y1.item())
 
         sigma_eps_t = torch.tensor(sigma_eps, dtype=torch.float64, device=device)
@@ -387,21 +414,58 @@ def calibration_HN_GARCH(
     T_LABELS = ["<30", "30-90", "90-180", "180+"]
 
 
-    def iv_mre_by_bucket(m, T, sigma_obs, sigma_model, prefix=""):
-        df = pd.DataFrame({"m": m, "T": T, "obs": sigma_obs, "mod": sigma_model})
-        df = df[df["obs"] > 0]
-        df["rel"] = (df["obs"] - df["mod"]).abs() / df["obs"]
+    def iv_errors_by_bucket(m, T, sigma_obs, sigma_model, prefix=""):
+        def as_numpy(values):
+            if torch.is_tensor(values):
+                values = values.detach().cpu().numpy()
+            return np.asarray(values, dtype=float).reshape(-1)
+
+        df = pd.DataFrame({
+            "m": as_numpy(m),
+            "T": as_numpy(T),
+            "obs": as_numpy(sigma_obs),
+            "mod": as_numpy(sigma_model),
+        })
+
+        # Use the same valid observations for all three metrics.
+        valid = (
+            np.isfinite(df["obs"])
+            & np.isfinite(df["mod"])
+            & (df["obs"] > 0)
+        )
+        df = df.loc[valid].copy()
+
+        error = df["obs"] - df["mod"]
+        df["abs_error"] = error.abs()
+        df["sq_error"] = error ** 2
+        df["rel_error"] = df["abs_error"] / df["obs"]
 
         out = {}
+
         for col, bins, labels in [
             ("T", T_BINS, T_LABELS),
             ("m", M_BINS, M_LABELS),
         ]:
-            bucket = pd.cut(df[col], bins, right=False, labels=labels)
-            g = df.groupby(bucket, observed=False)["rel"].agg(["mean", "size"])
-            for label, r in g.iterrows():
-                out[f"{prefix}mre_{col}{label}"] = r["mean"]
-                out[f"{prefix}n_{col}{label}"] = int(r["size"])
+            bucket = pd.cut(
+                df[col],
+                bins=bins,
+                labels=labels,
+                right=False,
+            )
+
+            grouped = df.groupby(bucket, observed=False).agg(
+                mre=("rel_error", "mean"),
+                mae=("abs_error", "mean"),
+                mse=("sq_error", "mean"),
+                n=("obs", "size"),
+            )
+
+            for label, row in grouped.iterrows():
+                for metric in ("mre", "mae", "mse"):
+                    out[f"{prefix}{metric}_{col}{label}"] = float(row[metric])
+
+                out[f"{prefix}n_{col}{label}"] = int(row["n"])
+
         return out
 
 
@@ -464,8 +528,19 @@ def calibration_HN_GARCH(
         "joint_loss_init": init_loss,
         "mean_iv_mse_init": mean_iv_mse_init,
         "mean_iv_mae_init": mean_iv_mae_init,
-        **iv_mre_by_bucket(m, T, sigma_obs, sigma_model_final.cpu().numpy()),
-        **iv_mre_by_bucket(m, T, sigma_obs, sigma_model_init.cpu().numpy(), prefix="init_"),
+        **iv_errors_by_bucket(
+            m,
+            T,
+            sigma_obs,
+            sigma_model_final,
+        ),
+        **iv_errors_by_bucket(
+            m,
+            T,
+            sigma_obs,
+            sigma_model_init,
+            prefix="init_",
+        ),
     }
 
 
