@@ -19,8 +19,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from ann import ForwardModel
 from main import SimDataset
 
-SRC2_ROOT = "src2_Health"
-REPORT_DIR = "health2_stats"
+SRC2_ROOT = "src2_CD"
+REPORT_DIR = "cd2_stats"
 garch_model = "hn"
 
 # Define the stationarity condition: beta + alpha * gamma^2
