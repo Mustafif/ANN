@@ -19,8 +19,8 @@ from torch.utils.data import DataLoader, RandomSampler
 from ann import ForwardModel
 from main import SimDataset
 
-SRC2_ROOT = "src2_CD"
-REPORT_DIR = "cd2_stats"
+SRC2_ROOT = "src2_Finance"
+REPORT_DIR = "finance2_stats"
 garch_model = "hn"
 
 # Define the stationarity condition: beta + alpha * gamma^2
@@ -136,14 +136,14 @@ def load_model(path, device):
 
 
 def initial_ll(params, log_returns, r):
-    return -returns_loss(params, log_returns, r)
+    return -returns_loss(params, log_returns, r).item()
 
 
 def returns_loss(params, log_returns, r):
     alpha, beta, omega, gamma, lambda_, _ = params
     size = len(log_returns)
-    log_returns = torch.tensor(log_returns)
-    h = torch.zeros(size)
+    log_returns = torch.tensor(log_returns, dtype=torch.float64)
+    h = torch.zeros(size, dtype=torch.float64)
     h[0] = torch.var(log_returns)
     # print(f"h0 = {h[0]}")
 

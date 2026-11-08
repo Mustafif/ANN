@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -190,7 +190,11 @@ def eval_model(model: nn.Module, test_loader, criterion, device):
 
 
 def main():
-    data = pd.read_csv(dataset)
+    dataset_path = Path(dataset)
+    data = pd.read_csv(dataset_path)
+    input_dir = dataset_path.absolute().parent
+    output_dir = input_dir.with_name(f"report_{input_dir.name}")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     train_data, test_data = train_test_split(data)
     num_workers = 6
@@ -264,11 +268,11 @@ def main():
     plt.title("Final Model: Training and Validation Loss")
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    dataset_name = os.path.basename(dataset).split("/")[0].split(".")[0]
+    dataset_name = dataset_path.stem
     # Build a safe filename from the dataset path (strip directories and extension)
     filename = f"final_model_loss_plot_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.png"
     # Save before show (so the file is written even if show blocks or closes the figure)
-    plt.savefig(filename)
+    plt.savefig(output_dir / filename)
     # plt.show()
     plt.close()
 
@@ -283,7 +287,7 @@ def main():
     # save the trained model
     torch.save(
         trained_model.state_dict(),
-        f"trained_model_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.pth",
+        output_dir / f"trained_model_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}.pth",
     )
     print("\n" + "=" * 60)
     print("Final Model Evaluation")
@@ -294,6 +298,7 @@ def main():
         train_pred,
         train_target,
         f"Train_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}",
+        output_dir,
     )
     print("\nOut-of-Sample Stats:")
     disp_stats(
@@ -301,37 +306,44 @@ def main():
         test_pred,
         test_target,
         f"Test_{dataset_name}_with_{'dlayer' if dlayer else 'out_dlayer'}",
+        output_dir,
     )
 
 
-def disp_stats(losses, pred, true, name):
-    mean = np.mean(losses)
-    corr = np.corrcoef(pred, true)
-    ninety_fifth = np.percentile(losses, 95)
-    ninety_ninth = np.percentile(losses, 99)
-    min_val = np.min(losses)
-    max_val = np.max(losses)
+def disp_stats(losses, pred, true, name, output_dir):
+    stats = {
+        "mean": np.mean(losses),
+        "corr": np.corrcoef(
+            np.asarray(pred).ravel(),
+            np.asarray(true).ravel(),
+        )[0, 1],
+        "ninety_fifth": np.percentile(losses, 95),
+        "ninety_ninth": np.percentile(losses, 99),
+        "min": np.min(losses),
+        "max": np.max(losses),
+    }
 
-    print(f"Mean: {mean:.12f}")
-    print(f"Correlation: {corr[0, 1]:.12f}")
-    print(f"95th Percentile: {ninety_fifth:.6f}")
-    print(f"99th Percentile: {ninety_ninth:.6f}")
-    print(f"Min: {min_val:.12f}")
-    print(f"Max: {max_val:.12f}")
+    for label, value in stats.items():
+        print(f"{label}: {value:.6e}")
 
-    df = pd.DataFrame(
-        {
-            "mean": [mean],
-            "corr": [corr[0, 1]],
-            "ninety_fifth": [ninety_fifth],
-            "ninety_ninth": [ninety_ninth],
-            "min": [min_val],
-            "max": [max_val],
-        }
+    df = pd.DataFrame([stats])
+
+    csv_path = output_dir / f"{name}_stats.csv"
+    latex_path = output_dir / f"{name}_stats.tex"
+
+    df.to_csv(
+        csv_path,
+        index=False,
+        float_format="%.6e",
     )
 
-    df.to_csv(f"{name}_stats.csv", index=True)
-    print(f"Stats saved to {name}_stats.csv")
+    df.to_latex(
+        latex_path,
+        index=False,
+        float_format=lambda value: f"{value:.3e}",
+    )
+
+    print(f"Stats saved to {csv_path} and {latex_path}")
 
 
 if __name__ == "__main__":
